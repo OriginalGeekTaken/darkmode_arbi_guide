@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Warframe Arbitrations Guide</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="logo-wrap" href="https://discord.gg/Arbitrations" target="_blank" rel="noopener noreferrer">
+      <img src="assets/logo.png" alt="Arbitrations Logo" class="logo">
+      <span class="site-title">Warframe Arbitrations Guide</span>
+    </a>
+
+    <div class="search-wrap">
+      <input id="searchBox" type="text" placeholder="Search the guide">
+      <button id="searchPrevBtn" type="button" aria-label="Previous result">↑</button>
+      <button id="searchNextBtn" type="button" aria-label="Next result">↓</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside id="sidebar" class="sidebar"></aside>
+
+    <main class="content-shell">
+      <article id="content" class="guide-content">
+        <p class="loading">Loading guide...</p>
+      </article>
+    </main>
+  </div>
+
+  <div id="lightbox" class="lightbox" hidden>
+    <img id="lightboxImg" alt="Expanded guide image">
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
