@@ -1,3 +1,5 @@
+const EXPORT_HTML_PATH = "export/WarframeArbitrationsGuide.html";
+
 let searchHits = [];
 let currentSearchIndex = -1;
 let observer = null;
@@ -6,99 +8,221 @@ async function loadGuide() {
   const content = document.getElementById("content");
 
   try {
-    const response = await fetch("guide-content.html", { cache: "no-store" });
+    const response = await fetch(`${EXPORT_HTML_PATH}?v=${Date.now()}`, { cache: "no-store" });
     if (!response.ok) {
-      throw new Error(`Failed to load guide-content.html (${response.status})`);
+      throw new Error(`Failed to load export HTML (${response.status})`);
     }
 
-    const html = await response.text();
-    content.innerHTML = html;
+    const rawHtml = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(rawHtml, "text/html");
 
-    postProcessGuide();
+    installExportStyles(doc);
+    rewriteRelativeImages(doc);
+    unwrapGoogleRedirectLinks(doc);
+
+    const outline = extractOutlineLinks(doc);
+    stripOutlineBlock(doc);
+
+    content.innerHTML = `<div class="google-export">${doc.body.innerHTML}</div>`;
+
+    buildSidebar(outline);
+    setupSectionObserver();
+    setupImages();
   } catch (error) {
     console.error(error);
-    content.innerHTML = `<p>Failed to load the guide content.</p>`;
+    content.innerHTML = `<p>Failed to load the guide export.</p>`;
   }
 }
 
-function slugify(text) {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-}
+function installExportStyles(doc) {
+  document.querySelectorAll("[data-export-style]").forEach(el => el.remove());
 
-function ensureHeadingIds() {
-  const headings = document.querySelectorAll("#content h1, #content h2, #content h3");
-  const used = new Set();
-
-  headings.forEach((heading, index) => {
-    let id = heading.id?.trim() || slugify(heading.textContent) || `section-${index}`;
-    while (used.has(id)) {
-      id += "-x";
-    }
-    used.add(id);
-    heading.id = id;
+  doc.querySelectorAll("style, link[rel='stylesheet']").forEach(el => {
+    const clone = el.cloneNode(true);
+    clone.setAttribute("data-export-style", "1");
+    document.head.appendChild(clone);
   });
 }
 
-function buildSidebar() {
-  const sidebar = document.getElementById("sidebar");
-  const headings = document.querySelectorAll("#content h1, #content h2, #content h3");
+function rewriteRelativeImages(doc) {
+  doc.querySelectorAll("img").forEach(img => {
+    const src = img.getAttribute("src");
+    if (!src) return;
 
+    if (/^(https?:|data:)/i.test(src)) return;
+
+    img.setAttribute("src", `export/${src.replace(/^\.?\//, "")}`);
+  });
+}
+
+function unwrapGoogleRedirectLinks(doc) {
+  doc.querySelectorAll("a[href]").forEach(a => {
+    const href = a.getAttribute("href");
+    if (!href) return;
+
+    if (href.startsWith("https://www.google.com/url?q=")) {
+      try {
+        const url = new URL(href);
+        const actual = url.searchParams.get("q");
+        if (actual) {
+          a.setAttribute("href", actual);
+        }
+      } catch {}
+    }
+  });
+}
+
+function extractOutlineLinks(doc) {
+  const anchors = Array.from(doc.body.querySelectorAll('a[href^="#h."]'));
+  const outline = [];
+  const seen = new Set();
+
+  for (const a of anchors) {
+    const href = a.getAttribute("href");
+    const text = a.textContent.trim();
+
+    if (!href || !text) continue;
+
+    if (seen.has(href)) {
+      if (outline.length > 10) break;
+      continue;
+    }
+
+    seen.add(href);
+    outline.push({
+      href,
+      text,
+      depth: getDepthFromText(text)
+    });
+  }
+
+  return outline;
+}
+
+function getDepthFromText(text) {
+  if (text.endsWith(":")) return 0;
+  if (
+    text.startsWith("Primary:") ||
+    text.startsWith("Secondary:") ||
+    text.startsWith("Melee:") ||
+    text === "CLIENT Cyte" ||
+    text === "Jade" ||
+    text === "Nidus Prime"
+  ) {
+    return 2;
+  }
+  if (
+    text === "Warframes:" ||
+    text === "Weapons" ||
+    text === "Companions" ||
+    text === "Gear Items" ||
+    text === "Arbitration Tilesets" ||
+    text === "Miscellaneous" ||
+    text === "Pre-Buffing Before Mission" ||
+    text === "AURA CHOICE"
+  ) {
+    return 0;
+  }
+  return 1;
+}
+
+function stripOutlineBlock(doc) {
+  const marker = Array.from(doc.body.querySelectorAll("p, div, h1, h2, h3"))
+    .find(el => el.textContent.includes("VIEW > SHOW OUTLINE"));
+
+  if (!marker) return;
+
+  let node = marker;
+  let removedCount = 0;
+
+  while (node && removedCount < 80) {
+    const next = node.nextElementSibling;
+    const text = node.textContent.trim();
+    const hasOutlineAnchor = node.querySelector('a[href^="#h."]');
+
+    const shouldRemove =
+      text.includes("VIEW > SHOW OUTLINE") ||
+      hasOutlineAnchor ||
+      (node.tagName === "P" && text.length > 0 && text.length < 80);
+
+    if (!shouldRemove) break;
+
+    node.remove();
+    removedCount += 1;
+    node = next;
+  }
+}
+
+function buildSidebar(outline) {
+  const sidebar = document.getElementById("sidebar");
   sidebar.innerHTML = "";
 
-  headings.forEach((heading) => {
+  outline.forEach(item => {
     const link = document.createElement("a");
-    link.href = `#${heading.id}`;
-    link.textContent = heading.textContent.trim() || heading.id;
-    link.className = `nav-${heading.tagName.toLowerCase()}`;
+    link.href = item.href;
+    link.textContent = item.text;
+    link.className = `depth-${item.depth}`;
+
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      const target = document.querySelector(item.href);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+
     sidebar.appendChild(link);
   });
 }
 
 function setupSectionObserver() {
   const links = Array.from(document.querySelectorAll("#sidebar a"));
-  const headingMap = new Map(links.map((link) => [link.getAttribute("href")?.slice(1), link]));
+  const targets = links
+    .map(link => {
+      const selector = link.getAttribute("href");
+      const target = document.querySelector(selector);
+      if (!target) return null;
+      return { link, target };
+    })
+    .filter(Boolean);
 
   if (observer) observer.disconnect();
 
   observer = new IntersectionObserver(
-    (entries) => {
-      let topMost = null;
+    entries => {
+      let best = null;
 
       for (const entry of entries) {
-        if (entry.isIntersecting) {
-          if (!topMost || entry.boundingClientRect.top < topMost.boundingClientRect.top) {
-            topMost = entry;
-          }
+        if (!entry.isIntersecting) continue;
+        if (!best || entry.boundingClientRect.top < best.boundingClientRect.top) {
+          best = entry;
         }
       }
 
-      if (!topMost) return;
+      if (!best) return;
 
-      links.forEach((link) => link.classList.remove("active"));
-      const active = headingMap.get(topMost.target.id);
-      if (active) active.classList.add("active");
+      links.forEach(link => link.classList.remove("active"));
+
+      const match = targets.find(item => item.target === best.target);
+      if (match) {
+        match.link.classList.add("active");
+      }
     },
     {
-      rootMargin: "-20% 0px -65% 0px",
+      rootMargin: "-18% 0px -68% 0px",
       threshold: [0, 1]
     }
   );
 
-  document.querySelectorAll("#content h1, #content h2, #content h3").forEach((heading) => {
-    observer.observe(heading);
-  });
+  targets.forEach(item => observer.observe(item.target));
 }
 
 function setupImages() {
   const lightbox = document.getElementById("lightbox");
   const lightboxImg = document.getElementById("lightboxImg");
 
-  document.querySelectorAll("#content img").forEach((img) => {
+  document.querySelectorAll("#content img").forEach(img => {
     img.addEventListener("click", () => {
       lightboxImg.src = img.src;
       lightbox.hidden = false;
@@ -112,10 +236,9 @@ function setupImages() {
 }
 
 function clearSearchHighlights() {
-  document.querySelectorAll("mark.search-hit").forEach((mark) => {
+  document.querySelectorAll("mark.search-hit").forEach(mark => {
     const parent = mark.parentNode;
     if (!parent) return;
-
     parent.replaceChild(document.createTextNode(mark.textContent || ""), mark);
     parent.normalize();
   });
@@ -124,12 +247,13 @@ function clearSearchHighlights() {
   currentSearchIndex = -1;
 }
 
-function highlightSearchTerm(term) {
+function highlightSearch(term) {
   clearSearchHighlights();
   if (!term.trim()) return;
 
-  const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
   const root = document.getElementById("content");
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(escaped, "gi");
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
 
   const textNodes = [];
@@ -138,8 +262,8 @@ function highlightSearchTerm(term) {
   while ((node = walker.nextNode())) {
     if (!node.nodeValue.trim()) continue;
 
-    const parentTag = node.parentNode?.nodeName?.toLowerCase();
-    if (["script", "style", "mark"].includes(parentTag)) continue;
+    const parentName = node.parentNode?.nodeName?.toLowerCase();
+    if (["script", "style", "mark"].includes(parentName)) continue;
 
     if (regex.test(node.nodeValue)) {
       textNodes.push(node);
@@ -184,7 +308,7 @@ function goToSearchHit(direction) {
   if (!term.trim()) return;
 
   if (searchHits.length === 0) {
-    highlightSearchTerm(term);
+    highlightSearch(term);
   }
 
   if (searchHits.length === 0) return;
@@ -207,13 +331,6 @@ function bindSearch() {
   document.getElementById("searchBox").addEventListener("input", () => {
     clearSearchHighlights();
   });
-}
-
-function postProcessGuide() {
-  ensureHeadingIds();
-  buildSidebar();
-  setupSectionObserver();
-  setupImages();
 }
 
 bindSearch();
