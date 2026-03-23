@@ -224,6 +224,10 @@
       cursor: zoom-out;
     }
 
+    .lightbox[hidden] {
+      display: none !important;
+    }
+
     .lightbox img {
       max-width: 94vw;
       max-height: 94vh;
@@ -289,31 +293,63 @@
     let currentSearchIndex = -1;
     let observer = null;
 
+    async function fetchWithTimeout(url, ms = 15000) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), ms);
+
+      try {
+        const response = await fetch(url, {
+          cache: "no-store",
+          signal: controller.signal
+        });
+        return response;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
     async function loadGuide() {
       const content = document.getElementById("content");
 
       try {
-        const response = await fetch(EXPORT_HTML_PATH, { cache: "no-store" });
+        console.log("Loading export:", EXPORT_HTML_PATH);
+
+        const response = await fetchWithTimeout(EXPORT_HTML_PATH, 15000);
         if (!response.ok) {
           throw new Error(`Failed to load export HTML (${response.status})`);
         }
 
         const rawHtml = await response.text();
+        if (!rawHtml.trim()) {
+          throw new Error("Export HTML was empty");
+        }
+
         const parser = new DOMParser();
         const doc = parser.parseFromString(rawHtml, "text/html");
 
         rewriteRelativeImages(doc);
         removeJunk(doc);
-        const outline = extractHeadings(doc);
 
-        content.innerHTML = `<div class="google-export">${doc.body.innerHTML}</div>`;
+        const outline = extractHeadings(doc);
+        const bodyHtml = doc.body ? doc.body.innerHTML : "";
+
+        if (!bodyHtml.trim()) {
+          throw new Error("Parsed export body was empty");
+        }
+
+        content.innerHTML = `<div class="google-export">${bodyHtml}</div>`;
 
         buildSidebar(outline);
         setupSectionObserver();
         setupImages();
+
+        console.log("Guide loaded successfully");
       } catch (error) {
-        console.error(error);
-        content.innerHTML = `<p>Failed to load the guide content.</p>`;
+        console.error("Guide load failed:", error);
+        content.innerHTML = `
+          <p>Failed to load the guide content.</p>
+          <p style="color:#a7b1be">Check the browser console for the exact error.</p>
+        `;
       }
     }
 
@@ -322,7 +358,8 @@
         const src = img.getAttribute("src");
         if (!src) return;
         if (/^(https?:|data:)/i.test(src)) return;
-        img.setAttribute("src", `./export/${src.replace(/^\\.?\\//, "")}`);
+
+        img.setAttribute("src", `./export/${src.replace(/^\.?\//, "")}`);
       });
     }
 
@@ -334,8 +371,8 @@
       return text
         .toLowerCase()
         .trim()
-        .replace(/[^\\w\\s-]/g, "")
-        .replace(/\\s+/g, "-")
+        .replace(/[^\w\s-]/g, "")
+        .replace(/\s+/g, "-")
         .replace(/-+/g, "-");
     }
 
@@ -343,18 +380,23 @@
       const headings = Array.from(doc.body.querySelectorAll("h1, h2, h3"));
       const used = new Set();
 
-      return headings.map((heading, index) => {
-        let id = heading.id?.trim() || slugify(heading.textContent) || `section-${index}`;
-        while (used.has(id)) id += "-x";
-        used.add(id);
-        heading.id = id;
+      return headings
+        .map((heading, index) => {
+          const text = heading.textContent.trim();
+          if (!text) return null;
 
-        return {
-          id,
-          text: heading.textContent.trim(),
-          depth: heading.tagName === "H1" ? 0 : heading.tagName === "H2" ? 1 : 2
-        };
-      });
+          let id = heading.id?.trim() || slugify(text) || `section-${index}`;
+          while (used.has(id)) id += "-x";
+          used.add(id);
+          heading.id = id;
+
+          return {
+            id,
+            text,
+            depth: heading.tagName === "H1" ? 0 : heading.tagName === "H2" ? 1 : 2
+          };
+        })
+        .filter(Boolean);
     }
 
     function buildSidebar(outline) {
@@ -370,7 +412,9 @@
         link.addEventListener("click", (event) => {
           event.preventDefault();
           const target = document.getElementById(item.id);
-          if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+          if (target) {
+            target.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
         });
 
         sidebar.appendChild(link);
@@ -404,6 +448,7 @@
           if (!best) return;
 
           links.forEach((link) => link.classList.remove("active"));
+
           const match = targets.find((item) => item.target === best.target);
           if (match) match.link.classList.add("active");
         },
@@ -420,16 +465,27 @@
       const lightbox = document.getElementById("lightbox");
       const lightboxImg = document.getElementById("lightboxImg");
 
+      lightbox.hidden = true;
+      lightboxImg.removeAttribute("src");
+
       document.querySelectorAll("#content img").forEach((img) => {
         img.addEventListener("click", () => {
+          if (!img.src) return;
           lightboxImg.src = img.src;
           lightbox.hidden = false;
         });
       });
 
-      lightbox.addEventListener("click", () => {
+      lightbox.onclick = () => {
         lightbox.hidden = true;
         lightboxImg.removeAttribute("src");
+      };
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          lightbox.hidden = true;
+          lightboxImg.removeAttribute("src");
+        }
       });
     }
 
@@ -450,7 +506,7 @@
       if (!term.trim()) return;
 
       const root = document.getElementById("content");
-      const escaped = term.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&");
+      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const regex = new RegExp(escaped, "gi");
       const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
 
