@@ -16,6 +16,7 @@
       --accent: #72c7ff;
       --active: rgba(114, 199, 255, 0.14);
       --shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+      --search-highlight: #4166f5;
     }
 
     * {
@@ -169,11 +170,11 @@
       overflow-x: auto;
     }
 
+    /* Keep defaults readable without nuking custom inline colors */
     .google-export p,
     .google-export li,
     .google-export td,
     .google-export th,
-    .google-export span,
     .google-export div,
     .google-export h1,
     .google-export h2,
@@ -181,6 +182,14 @@
     .google-export h4,
     .google-export h5,
     .google-export h6 {
+      color: var(--text);
+    }
+
+    /* Only force explicitly black text to light text */
+    .google-export [style*="color:#000"],
+    .google-export [style*="color: #000"],
+    .google-export [style*="color:rgb(0,0,0)"],
+    .google-export [style*="color: rgb(0, 0, 0)"] {
       color: var(--text) !important;
     }
 
@@ -215,8 +224,8 @@
     }
 
     mark.search-hit {
-      background: #ffd54a;
-      color: #111;
+      background: var(--search-highlight);
+      color: #ffffff;
       padding: 0.04em 0.14em;
       border-radius: 4px;
     }
@@ -310,28 +319,98 @@
         .replace(/-+/g, "-");
     }
 
-    function extractHeadings() {
+    function getDepthFromText(text) {
+      if (
+        text === "Warframes:" ||
+        text === "Weapons" ||
+        text === "Companions" ||
+        text === "Gear Items" ||
+        text === "Arbitration Tilesets" ||
+        text === "Miscellaneous" ||
+        text === "Pre-Buffing Before Mission" ||
+        text === "AURA CHOICE"
+      ) {
+        return 0;
+      }
+
+      if (
+        text.startsWith("Primary:") ||
+        text.startsWith("Secondary:") ||
+        text.startsWith("Melee:") ||
+        text === "CLIENT Cyte" ||
+        text === "Jade" ||
+        text === "Nidus Prime"
+      ) {
+        return 2;
+      }
+
+      return 1;
+    }
+
+    function extractOutlineLinks() {
+      const root = document.querySelector(".google-export");
+      const anchors = Array.from(root.querySelectorAll('a[href^="#h."]'));
+      const outline = [];
+      const seen = new Set();
+
+      for (const a of anchors) {
+        const href = a.getAttribute("href");
+        const text = a.textContent.trim();
+
+        if (!href || !text) continue;
+        if (seen.has(href)) continue;
+
+        seen.add(href);
+        outline.push({
+          href,
+          text,
+          depth: getDepthFromText(text)
+        });
+      }
+
+      return outline;
+    }
+
+    function stripInlineOutlineBlock() {
+      const root = document.querySelector(".google-export");
+      const marker = Array.from(root.querySelectorAll("p, div, h1, h2, h3"))
+        .find(el => el.textContent.includes("VIEW > SHOW OUTLINE"));
+
+      if (!marker) return;
+
+      let node = marker;
+      let removedCount = 0;
+
+      while (node && removedCount < 120) {
+        const next = node.nextElementSibling;
+        const text = node.textContent.trim();
+        const hasOutlineAnchor = !!node.querySelector('a[href^="#h."]');
+
+        const shouldRemove =
+          text.includes("VIEW > SHOW OUTLINE") ||
+          hasOutlineAnchor ||
+          (node.tagName === "P" && text.length > 0 && text.length < 120);
+
+        if (!shouldRemove) break;
+
+        node.remove();
+        removedCount += 1;
+        node = next;
+      }
+    }
+
+    function ensureHeadingIds() {
       const root = document.querySelector(".google-export");
       const headings = Array.from(root.querySelectorAll("h1, h2, h3"));
       const used = new Set();
 
-      return headings
-        .map((heading, index) => {
-          const text = heading.textContent.trim();
-          if (!text) return null;
-
-          let id = heading.id?.trim() || slugify(text) || `section-${index}`;
-          while (used.has(id)) id += "-x";
-          used.add(id);
-          heading.id = id;
-
-          return {
-            id,
-            text,
-            depth: heading.tagName === "H1" ? 0 : heading.tagName === "H2" ? 1 : 2
-          };
-        })
-        .filter(Boolean);
+      headings.forEach((heading, index) => {
+        const text = heading.textContent.trim();
+        let id = heading.id?.trim() || slugify(text) || `section-${index}`;
+        while (used.has(id)) id += "-x";
+        used.add(id);
+        heading.id = id;
+      });
     }
 
     function buildSidebar(outline) {
@@ -340,13 +419,13 @@
 
       outline.forEach((item) => {
         const link = document.createElement("a");
-        link.href = `#${item.id}`;
+        link.href = item.href;
         link.textContent = item.text;
         link.className = `depth-${item.depth}`;
 
         link.addEventListener("click", (event) => {
           event.preventDefault();
-          const target = document.getElementById(item.id);
+          const target = document.querySelector(item.href);
           if (target) {
             target.scrollIntoView({ behavior: "smooth", block: "start" });
           }
@@ -360,8 +439,8 @@
       const links = Array.from(document.querySelectorAll("#sidebar a"));
       const targets = links
         .map((link) => {
-          const id = link.getAttribute("href")?.slice(1);
-          const target = document.getElementById(id);
+          const selector = link.getAttribute("href");
+          const target = document.querySelector(selector);
           if (!target) return null;
           return { link, target };
         })
@@ -510,8 +589,10 @@
     });
     document.getElementById("searchBox").addEventListener("input", clearSearchHighlights);
 
-    const outline = extractHeadings();
+    ensureHeadingIds();
+    const outline = extractOutlineLinks();
     buildSidebar(outline);
+    stripInlineOutlineBlock();
     setupSectionObserver();
     setupImages();
   </script>
