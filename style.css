@@ -219,7 +219,6 @@ a {
   color: var(--text);
 }
 
-/* Search */
 mark.search-hit {
   background: #ffd54a;
   color: #111;
@@ -227,7 +226,6 @@ mark.search-hit {
   border-radius: 4px;
 }
 
-/* Lightbox */
 .lightbox {
   position: fixed;
   inset: 0;

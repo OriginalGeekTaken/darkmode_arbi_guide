@@ -8,7 +8,7 @@ async function loadGuide() {
   const content = document.getElementById("content");
 
   try {
-    const response = await fetch(`${EXPORT_HTML_PATH}?v=${Date.now()}`, { cache: "no-store" });
+    const response = await fetch(EXPORT_HTML_PATH, { cache: "no-store" });
     if (!response.ok) {
       throw new Error(`Failed to load export HTML (${response.status})`);
     }
@@ -22,7 +22,6 @@ async function loadGuide() {
     unwrapGoogleRedirectLinks(doc);
 
     const outline = extractOutlineLinks(doc);
-    stripOutlineBlock(doc);
 
     content.innerHTML = `<div class="google-export">${doc.body.innerHTML}</div>`;
 
@@ -31,22 +30,30 @@ async function loadGuide() {
     setupImages();
   } catch (error) {
     console.error(error);
-    content.innerHTML = `<p>Failed to load the guide export.</p>`;
+    content.innerHTML = `<p>Failed to load the guide content.</p>`;
   }
 }
 
 function installExportStyles(doc) {
-  document.querySelectorAll("[data-export-style]").forEach(el => el.remove());
+  document.querySelectorAll("[data-export-style]").forEach((el) => el.remove());
 
-  doc.querySelectorAll("style, link[rel='stylesheet']").forEach(el => {
+  doc.querySelectorAll("style, link[rel='stylesheet']").forEach((el) => {
     const clone = el.cloneNode(true);
+
+    if (clone.tagName === "LINK") {
+      const href = clone.getAttribute("href");
+      if (href && !/^(https?:|data:|\/)/i.test(href)) {
+        clone.setAttribute("href", `export/${href.replace(/^\.?\//, "")}`);
+      }
+    }
+
     clone.setAttribute("data-export-style", "1");
     document.head.appendChild(clone);
   });
 }
 
 function rewriteRelativeImages(doc) {
-  doc.querySelectorAll("img").forEach(img => {
+  doc.querySelectorAll("img").forEach((img) => {
     const src = img.getAttribute("src");
     if (!src) return;
 
@@ -57,7 +64,7 @@ function rewriteRelativeImages(doc) {
 }
 
 function unwrapGoogleRedirectLinks(doc) {
-  doc.querySelectorAll("a[href]").forEach(a => {
+  doc.querySelectorAll("a[href]").forEach((a) => {
     const href = a.getAttribute("href");
     if (!href) return;
 
@@ -68,7 +75,9 @@ function unwrapGoogleRedirectLinks(doc) {
         if (actual) {
           a.setAttribute("href", actual);
         }
-      } catch {}
+      } catch (err) {
+        console.warn("Failed to unwrap redirect:", href, err);
+      }
     }
   });
 }
@@ -83,13 +92,10 @@ function extractOutlineLinks(doc) {
     const text = a.textContent.trim();
 
     if (!href || !text) continue;
-
-    if (seen.has(href)) {
-      if (outline.length > 10) break;
-      continue;
-    }
+    if (seen.has(href)) continue;
 
     seen.add(href);
+
     outline.push({
       href,
       text,
@@ -101,17 +107,6 @@ function extractOutlineLinks(doc) {
 }
 
 function getDepthFromText(text) {
-  if (text.endsWith(":")) return 0;
-  if (
-    text.startsWith("Primary:") ||
-    text.startsWith("Secondary:") ||
-    text.startsWith("Melee:") ||
-    text === "CLIENT Cyte" ||
-    text === "Jade" ||
-    text === "Nidus Prime"
-  ) {
-    return 2;
-  }
   if (
     text === "Warframes:" ||
     text === "Weapons" ||
@@ -124,41 +119,26 @@ function getDepthFromText(text) {
   ) {
     return 0;
   }
-  return 1;
-}
 
-function stripOutlineBlock(doc) {
-  const marker = Array.from(doc.body.querySelectorAll("p, div, h1, h2, h3"))
-    .find(el => el.textContent.includes("VIEW > SHOW OUTLINE"));
-
-  if (!marker) return;
-
-  let node = marker;
-  let removedCount = 0;
-
-  while (node && removedCount < 80) {
-    const next = node.nextElementSibling;
-    const text = node.textContent.trim();
-    const hasOutlineAnchor = node.querySelector('a[href^="#h."]');
-
-    const shouldRemove =
-      text.includes("VIEW > SHOW OUTLINE") ||
-      hasOutlineAnchor ||
-      (node.tagName === "P" && text.length > 0 && text.length < 80);
-
-    if (!shouldRemove) break;
-
-    node.remove();
-    removedCount += 1;
-    node = next;
+  if (
+    text.startsWith("Primary:") ||
+    text.startsWith("Secondary:") ||
+    text.startsWith("Melee:") ||
+    text === "CLIENT Cyte" ||
+    text === "Jade" ||
+    text === "Nidus Prime"
+  ) {
+    return 2;
   }
+
+  return 1;
 }
 
 function buildSidebar(outline) {
   const sidebar = document.getElementById("sidebar");
   sidebar.innerHTML = "";
 
-  outline.forEach(item => {
+  outline.forEach((item) => {
     const link = document.createElement("a");
     link.href = item.href;
     link.textContent = item.text;
@@ -179,7 +159,7 @@ function buildSidebar(outline) {
 function setupSectionObserver() {
   const links = Array.from(document.querySelectorAll("#sidebar a"));
   const targets = links
-    .map(link => {
+    .map((link) => {
       const selector = link.getAttribute("href");
       const target = document.querySelector(selector);
       if (!target) return null;
@@ -190,7 +170,7 @@ function setupSectionObserver() {
   if (observer) observer.disconnect();
 
   observer = new IntersectionObserver(
-    entries => {
+    (entries) => {
       let best = null;
 
       for (const entry of entries) {
@@ -202,9 +182,9 @@ function setupSectionObserver() {
 
       if (!best) return;
 
-      links.forEach(link => link.classList.remove("active"));
+      links.forEach((link) => link.classList.remove("active"));
 
-      const match = targets.find(item => item.target === best.target);
+      const match = targets.find((item) => item.target === best.target);
       if (match) {
         match.link.classList.add("active");
       }
@@ -215,28 +195,32 @@ function setupSectionObserver() {
     }
   );
 
-  targets.forEach(item => observer.observe(item.target));
+  targets.forEach((item) => observer.observe(item.target));
 }
 
 function setupImages() {
   const lightbox = document.getElementById("lightbox");
   const lightboxImg = document.getElementById("lightboxImg");
 
-  document.querySelectorAll("#content img").forEach(img => {
+  lightbox.replaceWith(lightbox.cloneNode(true));
+  const freshLightbox = document.getElementById("lightbox");
+  const freshLightboxImg = document.getElementById("lightboxImg");
+
+  document.querySelectorAll("#content img").forEach((img) => {
     img.addEventListener("click", () => {
-      lightboxImg.src = img.src;
-      lightbox.hidden = false;
+      freshLightboxImg.src = img.src;
+      freshLightbox.hidden = false;
     });
   });
 
-  lightbox.addEventListener("click", () => {
-    lightbox.hidden = true;
-    lightboxImg.removeAttribute("src");
+  freshLightbox.addEventListener("click", () => {
+    freshLightbox.hidden = true;
+    freshLightboxImg.removeAttribute("src");
   });
 }
 
 function clearSearchHighlights() {
-  document.querySelectorAll("mark.search-hit").forEach(mark => {
+  document.querySelectorAll("mark.search-hit").forEach((mark) => {
     const parent = mark.parentNode;
     if (!parent) return;
     parent.replaceChild(document.createTextNode(mark.textContent || ""), mark);
