@@ -432,6 +432,12 @@
       });
     }
 
+    function resolveTargetFromHref(href) {
+      if (!href || !href.startsWith("#")) return null;
+      const rawId = href.slice(1);
+      return document.getElementById(rawId);
+    }
+
     function buildSidebar(outline) {
       const sidebar = document.getElementById("sidebar");
       sidebar.innerHTML = "";
@@ -444,7 +450,7 @@
 
         link.addEventListener("click", (event) => {
           event.preventDefault();
-          const target = document.querySelector(item.href);
+          const target = resolveTargetFromHref(item.href);
           if (target) {
             target.scrollIntoView({ behavior: "smooth", block: "start" });
           }
@@ -459,8 +465,8 @@
 
       const targets = links
         .map((link) => {
-          const selector = link.getAttribute("href");
-          const target = document.querySelector(selector);
+          const href = link.getAttribute("href");
+          const target = resolveTargetFromHref(href);
           if (!target) return null;
           return { link, target };
         })
@@ -492,7 +498,6 @@
           const match = targets.find((item) => item.target === bestEntry.target);
           if (match) {
             match.link.classList.add("active");
-
             match.link.scrollIntoView({
               block: "nearest"
             });
