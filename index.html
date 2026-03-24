@@ -173,8 +173,8 @@
     }
 
     .sidebar a.active {
-      background: var(--active);
-      color: var(--text);
+      background: rgba(114, 199, 255, 0.14);
+      color: #e9eef5;
       font-weight: 700;
     }
 
@@ -456,6 +456,7 @@
 
     function setupSectionObserver() {
       const links = Array.from(document.querySelectorAll("#sidebar a"));
+
       const targets = links
         .map((link) => {
           const selector = link.getAttribute("href");
@@ -465,32 +466,64 @@
         })
         .filter(Boolean);
 
+      if (!targets.length) return;
+
       if (observer) observer.disconnect();
 
       observer = new IntersectionObserver(
         (entries) => {
-          let best = null;
+          let bestEntry = null;
 
           for (const entry of entries) {
             if (!entry.isIntersecting) continue;
-            if (!best || entry.boundingClientRect.top < best.boundingClientRect.top) {
-              best = entry;
+
+            if (
+              !bestEntry ||
+              Math.abs(entry.boundingClientRect.top) < Math.abs(bestEntry.boundingClientRect.top)
+            ) {
+              bestEntry = entry;
             }
           }
 
-          if (!best) return;
+          if (!bestEntry) return;
 
           links.forEach((link) => link.classList.remove("active"));
-          const match = targets.find((item) => item.target === best.target);
-          if (match) match.link.classList.add("active");
+
+          const match = targets.find((item) => item.target === bestEntry.target);
+          if (match) {
+            match.link.classList.add("active");
+
+            match.link.scrollIntoView({
+              block: "nearest"
+            });
+          }
         },
         {
-          rootMargin: "-18% 0px -68% 0px",
-          threshold: [0, 1]
+          root: null,
+          rootMargin: "-18% 0px -70% 0px",
+          threshold: [0, 0.1, 0.25, 0.5, 1]
         }
       );
 
       targets.forEach((item) => observer.observe(item.target));
+
+      function setInitialActive() {
+        let best = null;
+
+        for (const item of targets) {
+          const rect = item.target.getBoundingClientRect();
+          if (rect.top <= window.innerHeight * 0.28) {
+            best = item;
+          }
+        }
+
+        if (!best) best = targets[0];
+
+        links.forEach((link) => link.classList.remove("active"));
+        best.link.classList.add("active");
+      }
+
+      setInitialActive();
     }
 
     function setupImages() {
