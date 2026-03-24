@@ -474,30 +474,6 @@
       return 1;
     }
 
-    function rewriteModeSwitchLine() {
-      const anchors = Array.from(document.querySelectorAll(".google-export a"));
-      const darkUrls = [
-        "https://originalgeektaken.github.io/darkmode_arbi_guide/",
-        "https://originalgeektaken.github.io/darkmode_arbi_guide/".replace(/\/$/, "")
-      ];
-
-      anchors.forEach((a) => {
-        const href = (a.getAttribute("href") || "").trim();
-        if (!darkUrls.includes(href)) return;
-
-        a.href = "https://docs.google.com/document/d/14yAA4rv82MVjDJKasm70oL_peegCHPQioDeMGdvf4DM";
-        a.textContent = "HERE";
-
-        const container = a.closest("p, li, div") || a.parentElement;
-        if (!container) return;
-
-        const text = container.textContent.replace(/\s+/g, " ").trim();
-        if (/if you prefer dark mode, click here\.?/i.test(text)) {
-          container.innerHTML = `If you prefer google doc or LIGHT MODE, click <a href="https://docs.google.com/document/d/14yAA4rv82MVjDJKasm70oL_peegCHPQioDeMGdvf4DM">HERE</a>.`;
-        }
-      });
-    }
-
     function extractOutlineLinks() {
       const root = document.querySelector(".google-export");
       const anchors = Array.from(root.querySelectorAll('a[href^="#h."]'));
@@ -877,7 +853,6 @@
       applyFontScale();
     });
 
-    rewriteModeSwitchLine();
     ensureHeadingIds();
     const outline = extractOutlineLinks();
     buildSidebar(outline);
