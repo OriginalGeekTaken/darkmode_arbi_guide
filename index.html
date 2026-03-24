@@ -74,14 +74,34 @@
       gap: 8px;
     }
 
+    .search-box-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
     .search-wrap input {
       width: min(420px, 50vw);
-      padding: 10px 12px;
+      padding: 10px 72px 10px 12px;
       border-radius: 10px;
       border: 1px solid var(--border);
       background: var(--panel);
       color: var(--text);
       outline: none;
+    }
+
+    .search-count {
+      position: absolute;
+      right: 12px;
+      font-size: 12px;
+      color: var(--muted);
+      pointer-events: none;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .search-count:empty {
+      display: none;
     }
 
     .search-wrap button {
@@ -170,7 +190,6 @@
       overflow-x: auto;
     }
 
-    /* Keep defaults readable without nuking custom inline colors */
     .google-export p,
     .google-export li,
     .google-export td,
@@ -185,11 +204,17 @@
       color: var(--text);
     }
 
-    /* Only force explicitly black text to light text */
+    /* Preserve original inline colors except pure/near-black */
     .google-export [style*="color:#000"],
     .google-export [style*="color: #000"],
     .google-export [style*="color:rgb(0,0,0)"],
-    .google-export [style*="color: rgb(0, 0, 0)"] {
+    .google-export [style*="color: rgb(0, 0, 0)"],
+    .google-export [style*="color:#111"],
+    .google-export [style*="color: #111"],
+    .google-export [style*="color:#222"],
+    .google-export [style*="color: #222"],
+    .google-export [style*="color:#333"],
+    .google-export [style*="color: #333"] {
       color: var(--text) !important;
     }
 
@@ -224,10 +249,12 @@
     }
 
     mark.search-hit {
-      background: var(--search-highlight);
-      color: #ffffff;
+      background: var(--search-highlight) !important;
+      color: #ffffff !important;
       padding: 0.04em 0.14em;
       border-radius: 4px;
+      box-decoration-break: clone;
+      -webkit-box-decoration-break: clone;
     }
 
     .lightbox {
@@ -283,7 +310,10 @@
     </a>
 
     <div class="search-wrap">
-      <input id="searchBox" type="text" placeholder="Search the guide">
+      <div class="search-box-wrap">
+        <input id="searchBox" type="text" placeholder="Search the guide">
+        <span id="searchCount" class="search-count"></span>
+      </div>
       <button id="searchPrevBtn" type="button" aria-label="Previous result">↑</button>
       <button id="searchNextBtn" type="button" aria-label="Next result">↓</button>
     </div>
@@ -502,6 +532,15 @@
       });
     }
 
+    function updateSearchCount() {
+      const el = document.getElementById("searchCount");
+      if (!searchHits.length || currentSearchIndex < 0) {
+        el.textContent = "";
+        return;
+      }
+      el.textContent = `${currentSearchIndex + 1} of ${searchHits.length}`;
+    }
+
     function clearSearchHighlights() {
       document.querySelectorAll("mark.search-hit").forEach((mark) => {
         const parent = mark.parentNode;
@@ -512,6 +551,7 @@
 
       searchHits = [];
       currentSearchIndex = -1;
+      updateSearchCount();
     }
 
     function highlightSearch(term) {
@@ -575,9 +615,14 @@
       if (!term.trim()) return;
 
       if (searchHits.length === 0) highlightSearch(term);
-      if (searchHits.length === 0) return;
+      if (searchHits.length === 0) {
+        updateSearchCount();
+        return;
+      }
 
       currentSearchIndex = (currentSearchIndex + direction + searchHits.length) % searchHits.length;
+      updateSearchCount();
+
       const hit = searchHits[currentSearchIndex];
       hit.scrollIntoView({ behavior: "smooth", block: "center" });
     }
@@ -587,7 +632,17 @@
     document.getElementById("searchBox").addEventListener("keydown", (event) => {
       if (event.key === "Enter") goToSearchHit(1);
     });
-    document.getElementById("searchBox").addEventListener("input", clearSearchHighlights);
+    document.getElementById("searchBox").addEventListener("input", () => {
+      clearSearchHighlights();
+      const value = document.getElementById("searchBox").value.trim();
+      if (value) {
+        highlightSearch(value);
+        if (searchHits.length) {
+          currentSearchIndex = 0;
+          updateSearchCount();
+        }
+      }
+    });
 
     ensureHeadingIds();
     const outline = extractOutlineLinks();
@@ -595,6 +650,7 @@
     stripInlineOutlineBlock();
     setupSectionObserver();
     setupImages();
+    updateSearchCount();
   </script>
 </body>
 </html>
