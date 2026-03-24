@@ -165,6 +165,7 @@
       border-radius: 10px;
       margin-bottom: 4px;
       transition: 0.15s ease;
+      cursor: pointer;
     }
 
     .sidebar a:hover {
@@ -452,7 +453,10 @@
           event.preventDefault();
           const target = resolveTargetFromHref(item.href);
           if (target) {
-            target.scrollIntoView({ behavior: "smooth", block: "start" });
+            target.scrollIntoView({
+              behavior: "smooth",
+              block: "start"
+            });
           }
         });
 
@@ -512,23 +516,18 @@
 
       targets.forEach((item) => observer.observe(item.target));
 
-      function setInitialActive() {
-        let best = null;
-
-        for (const item of targets) {
-          const rect = item.target.getBoundingClientRect();
-          if (rect.top <= window.innerHeight * 0.28) {
-            best = item;
-          }
+      let best = null;
+      for (const item of targets) {
+        const rect = item.target.getBoundingClientRect();
+        if (rect.top <= window.innerHeight * 0.28) {
+          best = item;
         }
-
-        if (!best) best = targets[0];
-
-        links.forEach((link) => link.classList.remove("active"));
-        best.link.classList.add("active");
       }
 
-      setInitialActive();
+      if (!best) best = targets[0];
+
+      links.forEach((link) => link.classList.remove("active"));
+      best.link.classList.add("active");
     }
 
     function setupImages() {
