@@ -131,6 +131,19 @@
       gap: 18px;
     }
 
+    .reset-button {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      padding: 0;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .reset-button:hover {
+      color: var(--text);
+    }
+
     .control-group {
       display: flex;
       align-items: center;
@@ -167,6 +180,15 @@
 
     .control-buttons button:hover {
       background: var(--panel-2);
+    }
+
+    .control-buttons button:active,
+    .control-buttons button.is-pressed,
+    .search-wrap button:active,
+    .search-wrap button.is-pressed {
+      background: rgba(65, 102, 245, 0.24);
+      border-color: #4166f5;
+      color: #9dc0ff;
     }
 
     .search-wrap {
@@ -430,6 +452,8 @@
 
     <div class="topbar-controls">
       <div class="user-controls">
+        <button id="resetControlsBtn" class="reset-button" type="button" aria-label="Reset display controls">Reset</button>
+
         <div class="control-group">
           <span class="control-label">Font</span>
           <div class="control-buttons">
@@ -484,12 +508,16 @@
   </div>
 
   <script>
+    const DEFAULT_FONT_SCALE = 1;
+    const DEFAULT_READING_LINE_HEIGHT = 1.55;
+    const DEFAULT_CONTENT_MAX_WIDTH = 1200;
+
     let searchHits = [];
     let currentSearchIndex = -1;
     let observer = null;
-    let fontScale = 1;
-    let readingLineHeight = 1.55;
-    let contentMaxWidth = 1200;
+    let fontScale = DEFAULT_FONT_SCALE;
+    let readingLineHeight = DEFAULT_READING_LINE_HEIGHT;
+    let contentMaxWidth = DEFAULT_CONTENT_MAX_WIDTH;
     let widthAdjustTimer = null;
 
     const firedScrollMilestones = new Set();
@@ -533,6 +561,15 @@
       localStorage.setItem("guideContentMaxWidth", String(contentMaxWidth));
     }
 
+    function resetUserControls() {
+      fontScale = DEFAULT_FONT_SCALE;
+      readingLineHeight = DEFAULT_READING_LINE_HEIGHT;
+      contentMaxWidth = DEFAULT_CONTENT_MAX_WIDTH;
+      applyFontScale();
+      applyReadingLineHeight();
+      applyContentMaxWidth();
+    }
+
     function adjustContentWidth(delta) {
       const nextWidth = Math.min(1600, Math.max(860, contentMaxWidth + delta));
       if (nextWidth === contentMaxWidth) return;
@@ -569,6 +606,26 @@
       button.addEventListener("click", (event) => {
         event.preventDefault();
       });
+    }
+
+    function bindPressedState(button) {
+      const activate = (event) => {
+        if (event.type === "pointerdown" && event.button !== 0) return;
+        button.classList.add("is-pressed");
+      };
+
+      const deactivate = () => {
+        button.classList.remove("is-pressed");
+      };
+
+      button.addEventListener("pointerdown", activate);
+      button.addEventListener("pointerup", deactivate);
+      button.addEventListener("pointerleave", deactivate);
+      button.addEventListener("pointercancel", deactivate);
+      button.addEventListener("lostpointercapture", deactivate);
+      button.addEventListener("blur", deactivate);
+      window.addEventListener("pointerup", deactivate);
+      window.addEventListener("blur", deactivate);
     }
 
     function loadFontScale() {
@@ -1415,10 +1472,26 @@
       applyReadingLineHeight();
     });
 
+    document.getElementById("resetControlsBtn").addEventListener("click", () => {
+      stopWidthAdjust();
+      resetUserControls();
+    });
+
     const widthIncreaseBtn = document.getElementById("widthIncreaseBtn");
     const widthDecreaseBtn = document.getElementById("widthDecreaseBtn");
     bindWidthHold(widthIncreaseBtn, 40);
     bindWidthHold(widthDecreaseBtn, -40);
+
+    [
+      document.getElementById("fontIncreaseBtn"),
+      document.getElementById("fontDecreaseBtn"),
+      document.getElementById("spacingIncreaseBtn"),
+      document.getElementById("spacingDecreaseBtn"),
+      widthIncreaseBtn,
+      widthDecreaseBtn,
+      document.getElementById("searchPrevBtn"),
+      document.getElementById("searchNextBtn")
+    ].forEach(bindPressedState);
 
     window.addEventListener("pointerup", stopWidthAdjust);
     window.addEventListener("blur", stopWidthAdjust);
