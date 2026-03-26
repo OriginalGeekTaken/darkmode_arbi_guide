@@ -149,11 +149,6 @@
       gap: 2px;
     }
 
-    .control-buttons-horizontal {
-      flex-direction: row;
-      gap: 4px;
-    }
-
     .control-buttons button {
       width: 24px;
       height: 14px;
@@ -453,9 +448,9 @@
 
         <div class="control-group">
           <span class="control-label">Width</span>
-          <div class="control-buttons control-buttons-horizontal">
-            <button id="widthIncreaseBtn" type="button" aria-label="Increase guide width">&gt;</button>
-            <button id="widthDecreaseBtn" type="button" aria-label="Decrease guide width">&lt;</button>
+          <div class="control-buttons">
+            <button id="widthIncreaseBtn" type="button" aria-label="Increase guide width">^</button>
+            <button id="widthDecreaseBtn" type="button" aria-label="Decrease guide width">v</button>
           </div>
         </div>
       </div>
@@ -495,6 +490,7 @@
     let fontScale = 1;
     let readingLineHeight = 1.55;
     let contentMaxWidth = 1200;
+    let widthAdjustTimer = null;
 
     const firedScrollMilestones = new Set();
     const viewedSections = new Set();
@@ -535,6 +531,44 @@
     function applyContentMaxWidth() {
       document.documentElement.style.setProperty("--content-max-width", `${contentMaxWidth}px`);
       localStorage.setItem("guideContentMaxWidth", String(contentMaxWidth));
+    }
+
+    function adjustContentWidth(delta) {
+      const nextWidth = Math.min(1600, Math.max(860, contentMaxWidth + delta));
+      if (nextWidth === contentMaxWidth) return;
+      contentMaxWidth = nextWidth;
+      applyContentMaxWidth();
+    }
+
+    function stopWidthAdjust() {
+      if (widthAdjustTimer !== null) {
+        window.clearInterval(widthAdjustTimer);
+        widthAdjustTimer = null;
+      }
+    }
+
+    function startWidthAdjust(delta) {
+      stopWidthAdjust();
+      adjustContentWidth(delta);
+      widthAdjustTimer = window.setInterval(() => {
+        adjustContentWidth(delta);
+      }, 75);
+    }
+
+    function bindWidthHold(button, delta) {
+      button.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        startWidthAdjust(delta);
+      });
+
+      button.addEventListener("pointerup", stopWidthAdjust);
+      button.addEventListener("pointerleave", stopWidthAdjust);
+      button.addEventListener("pointercancel", stopWidthAdjust);
+      button.addEventListener("lostpointercapture", stopWidthAdjust);
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+      });
     }
 
     function loadFontScale() {
@@ -1381,15 +1415,13 @@
       applyReadingLineHeight();
     });
 
-    document.getElementById("widthIncreaseBtn").addEventListener("click", () => {
-      contentMaxWidth = Math.min(1600, contentMaxWidth + 40);
-      applyContentMaxWidth();
-    });
+    const widthIncreaseBtn = document.getElementById("widthIncreaseBtn");
+    const widthDecreaseBtn = document.getElementById("widthDecreaseBtn");
+    bindWidthHold(widthIncreaseBtn, 40);
+    bindWidthHold(widthDecreaseBtn, -40);
 
-    document.getElementById("widthDecreaseBtn").addEventListener("click", () => {
-      contentMaxWidth = Math.max(860, contentMaxWidth - 40);
-      applyContentMaxWidth();
-    });
+    window.addEventListener("pointerup", stopWidthAdjust);
+    window.addEventListener("blur", stopWidthAdjust);
 
     window.addEventListener("hashchange", () => {
       prioritizeMediaFromHash();
