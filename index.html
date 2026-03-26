@@ -59,6 +59,8 @@
       --shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
       --search-highlight: #4166f5;
       --font-scale: 1;
+      --reading-line-height: 1.55;
+      --content-max-width: 1200px;
     }
 
     * {
@@ -123,13 +125,31 @@
       gap: 16px;
     }
 
-    .font-controls {
+    .user-controls {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .control-group {
       display: flex;
       align-items: center;
       gap: 10px;
     }
 
-    .font-controls button {
+    .control-label {
+      color: var(--text);
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .control-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control-buttons button {
       padding: 10px 14px;
       border-radius: 10px;
       border: 1px solid var(--border);
@@ -140,14 +160,18 @@
       line-height: 1;
     }
 
-    .font-controls button:hover {
+    .control-buttons button:hover {
       background: var(--panel-2);
     }
 
-    .font-label {
-      color: var(--text);
-      font-weight: 700;
+    .control-buttons button {
+      width: 44px;
+      height: 28px;
+      padding: 0;
+      display: grid;
+      place-items: center;
       font-size: 18px;
+      font-family: inherit;
     }
 
     .search-wrap {
@@ -249,7 +273,7 @@
     }
 
     .content {
-      width: min(100%, 1200px);
+      width: min(100%, var(--content-max-width));
       margin: 0 auto;
       padding: 28px 28px 80px;
     }
@@ -257,6 +281,7 @@
     .google-export {
       color: var(--text);
       font-size: calc(1em * var(--font-scale));
+      line-height: var(--reading-line-height);
     }
 
     .google-export h1 { font-size: calc(2em * var(--font-scale)); }
@@ -388,7 +413,11 @@
         gap: 10px;
       }
 
-      .font-label {
+      .user-controls {
+        gap: 10px;
+      }
+
+      .control-label {
         font-size: 16px;
       }
     }
@@ -404,10 +433,30 @@
     <div class="topbar-note"># Click on media to expand!</div>
 
     <div class="topbar-controls">
-      <div class="font-controls">
-        <button id="fontIncreaseBtn" type="button" aria-label="Increase font size">+</button>
-        <span class="font-label">Font</span>
-        <button id="fontDecreaseBtn" type="button" aria-label="Decrease font size">−</button>
+      <div class="user-controls">
+        <div class="control-group">
+          <span class="control-label">Font</span>
+          <div class="control-buttons">
+            <button id="fontIncreaseBtn" type="button" aria-label="Increase font size">^</button>
+            <button id="fontDecreaseBtn" type="button" aria-label="Decrease font size">v</button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <span class="control-label">Spacing</span>
+          <div class="control-buttons">
+            <button id="spacingIncreaseBtn" type="button" aria-label="Increase text spacing">^</button>
+            <button id="spacingDecreaseBtn" type="button" aria-label="Decrease text spacing">v</button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <span class="control-label">Width</span>
+          <div class="control-buttons">
+            <button id="widthIncreaseBtn" type="button" aria-label="Increase guide width">^</button>
+            <button id="widthDecreaseBtn" type="button" aria-label="Decrease guide width">v</button>
+          </div>
+        </div>
       </div>
 
       <div class="search-wrap">
@@ -443,6 +492,8 @@
     let currentSearchIndex = -1;
     let observer = null;
     let fontScale = 1;
+    let readingLineHeight = 1.55;
+    let contentMaxWidth = 1200;
 
     const firedScrollMilestones = new Set();
     const viewedSections = new Set();
@@ -475,6 +526,16 @@
       localStorage.setItem("guideFontScale", String(fontScale));
     }
 
+    function applyReadingLineHeight() {
+      document.documentElement.style.setProperty("--reading-line-height", String(readingLineHeight));
+      localStorage.setItem("guideReadingLineHeight", String(readingLineHeight));
+    }
+
+    function applyContentMaxWidth() {
+      document.documentElement.style.setProperty("--content-max-width", `${contentMaxWidth}px`);
+      localStorage.setItem("guideContentMaxWidth", String(contentMaxWidth));
+    }
+
     function loadFontScale() {
       const saved = localStorage.getItem("guideFontScale");
       if (!saved) return;
@@ -484,6 +545,28 @@
 
       fontScale = Math.min(1.6, Math.max(0.7, parsed));
       applyFontScale();
+    }
+
+    function loadReadingLineHeight() {
+      const saved = localStorage.getItem("guideReadingLineHeight");
+      if (!saved) return;
+
+      const parsed = Number(saved);
+      if (!Number.isFinite(parsed)) return;
+
+      readingLineHeight = Math.min(1.9, Math.max(1.35, parsed));
+      applyReadingLineHeight();
+    }
+
+    function loadContentMaxWidth() {
+      const saved = localStorage.getItem("guideContentMaxWidth");
+      if (!saved) return;
+
+      const parsed = Number(saved);
+      if (!Number.isFinite(parsed)) return;
+
+      contentMaxWidth = Math.min(1600, Math.max(860, Math.round(parsed)));
+      applyContentMaxWidth();
     }
 
     function getDepthFromText(text) {
@@ -1287,6 +1370,26 @@
       applyFontScale();
     });
 
+    document.getElementById("spacingIncreaseBtn").addEventListener("click", () => {
+      readingLineHeight = Math.min(1.9, +(readingLineHeight + 0.03).toFixed(2));
+      applyReadingLineHeight();
+    });
+
+    document.getElementById("spacingDecreaseBtn").addEventListener("click", () => {
+      readingLineHeight = Math.max(1.35, +(readingLineHeight - 0.03).toFixed(2));
+      applyReadingLineHeight();
+    });
+
+    document.getElementById("widthIncreaseBtn").addEventListener("click", () => {
+      contentMaxWidth = Math.min(1600, contentMaxWidth + 40);
+      applyContentMaxWidth();
+    });
+
+    document.getElementById("widthDecreaseBtn").addEventListener("click", () => {
+      contentMaxWidth = Math.max(860, contentMaxWidth - 40);
+      applyContentMaxWidth();
+    });
+
     window.addEventListener("hashchange", () => {
       prioritizeMediaFromHash();
     });
@@ -1301,6 +1404,8 @@
     setupSearchTracking();
     updateSearchCount();
     loadFontScale();
+    loadReadingLineHeight();
+    loadContentMaxWidth();
     startMediaLoading();
     prioritizeMediaFromHash();
   </script>
