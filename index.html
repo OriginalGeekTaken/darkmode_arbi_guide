@@ -272,6 +272,10 @@
       cursor: zoom-in;
     }
 
+    .google-export video {
+      cursor: zoom-in;
+    }
+
     .google-export table {
       max-width: 100%;
       display: block;
@@ -325,7 +329,8 @@
       display: none !important;
     }
 
-    .lightbox img {
+    .lightbox img,
+    .lightbox video {
       max-width: 94vw;
       max-height: 94vh;
       border-radius: 12px;
@@ -402,6 +407,7 @@
 
   <div id="lightbox" class="lightbox" hidden>
     <img id="lightboxImg" alt="Expanded image">
+    <video id="lightboxVideo" playsinline loop muted controls hidden></video>
   </div>
 
   <script>
@@ -923,9 +929,20 @@
     function setupImages() {
       const lightbox = document.getElementById("lightbox");
       const lightboxImg = document.getElementById("lightboxImg");
+      const lightboxVideo = document.getElementById("lightboxVideo");
 
-      lightbox.hidden = true;
-      lightboxImg.removeAttribute("src");
+      function resetLightbox() {
+        lightbox.hidden = true;
+        lightboxImg.hidden = true;
+        lightboxImg.removeAttribute("src");
+        lightboxVideo.pause();
+        lightboxVideo.hidden = true;
+        lightboxVideo.removeAttribute("src");
+        lightboxVideo.querySelectorAll("source").forEach((source) => source.remove());
+        lightboxVideo.load();
+      }
+
+      resetLightbox();
 
       document.querySelectorAll("#content img[data-guide-media='1']").forEach((img) => {
         img.addEventListener("click", async () => {
@@ -938,20 +955,62 @@
             page_location: window.location.href
           });
 
+          lightboxVideo.pause();
+          lightboxVideo.hidden = true;
           lightboxImg.src = img.src;
+          lightboxImg.hidden = false;
           lightbox.hidden = false;
         });
       });
 
-      lightbox.onclick = () => {
-        lightbox.hidden = true;
-        lightboxImg.removeAttribute("src");
+      document.querySelectorAll("#content video[data-guide-media='1']").forEach((video) => {
+        video.addEventListener("click", async () => {
+          await loadMediaElement(video, "high");
+          const mp4Src = video.dataset.srcMp4;
+          const webmSrc = video.dataset.srcWebm;
+          if (!mp4Src && !webmSrc) return;
+
+          trackEvent("video_expand", {
+            video_src: mp4Src || webmSrc,
+            page_title: document.title,
+            page_location: window.location.href
+          });
+
+          lightboxImg.hidden = true;
+          lightboxImg.removeAttribute("src");
+          lightboxVideo.pause();
+          lightboxVideo.querySelectorAll("source").forEach((source) => source.remove());
+
+          if (webmSrc) {
+            const webmSource = document.createElement("source");
+            webmSource.src = webmSrc;
+            webmSource.type = "video/webm";
+            lightboxVideo.appendChild(webmSource);
+          }
+
+          if (mp4Src) {
+            const mp4Source = document.createElement("source");
+            mp4Source.src = mp4Src;
+            mp4Source.type = "video/mp4";
+            lightboxVideo.appendChild(mp4Source);
+          }
+
+          lightboxVideo.hidden = false;
+          lightbox.hidden = false;
+          lightboxVideo.load();
+          lightboxVideo.play().catch(() => {});
+        });
+      });
+
+      lightbox.onclick = (event) => {
+        if (event.target === lightbox) {
+          resetLightbox();
+        }
       };
 
       document.addEventListener("keydown", (event) => {
         if (event.key === "Escape") {
-          lightbox.hidden = true;
-          lightboxImg.removeAttribute("src");
+          resetLightbox();
         }
       });
     }
