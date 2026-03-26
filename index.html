@@ -1002,10 +1002,8 @@
         });
       });
 
-      lightbox.onclick = (event) => {
-        if (event.target === lightbox) {
-          resetLightbox();
-        }
+      lightbox.onclick = () => {
+        resetLightbox();
       };
 
       document.addEventListener("keydown", (event) => {
