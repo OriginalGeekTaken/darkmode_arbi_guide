@@ -95,6 +95,13 @@
       flex: 0 0 auto;
     }
 
+    .topbar-note {
+      color: var(--muted);
+      font-size: 16px;
+      white-space: nowrap;
+      margin-right: auto;
+    }
+
     .topbar-controls {
       display: flex;
       align-items: center;
@@ -358,6 +365,10 @@
         display: none;
       }
 
+      .topbar-note {
+        display: none;
+      }
+
       .topbar-controls {
         gap: 10px;
       }
@@ -374,6 +385,8 @@
       <img src="./logo.png" alt="Arbitrations Logo" class="brand-logo">
       <span>Warframe Arbitrations Guide</span>
     </a>
+
+    <div class="topbar-note"># Click on media to expand!</div>
 
     <div class="topbar-controls">
       <div class="font-controls">
