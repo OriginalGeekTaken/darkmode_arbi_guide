@@ -258,16 +258,13 @@
       grid-template-columns: 300px minmax(0, 1fr);
       min-height: calc(100vh - 67px);
       min-width: 0;
-      align-items: start;
     }
 
     .sidebar {
       position: sticky;
       top: 67px;
-      align-self: start;
       height: calc(100vh - 67px);
-      overflow-y: auto;
-      overflow-x: hidden;
+      overflow: auto;
       overscroll-behavior: contain;
       padding: 18px 14px 24px;
       box-sizing: border-box;
@@ -1085,7 +1082,6 @@
           const target = resolveSidebarLinkTarget(link);
           if (target) {
             window.history.pushState(null, "", link.getAttribute("href"));
-            link.blur();
             prioritizeMediaForHeading(target);
             scrollToHeading(target, "smooth");
           }
@@ -1132,6 +1128,7 @@
           const match = targets.find((item) => item.target === bestEntry.target);
           if (match) {
             match.link.classList.add("active");
+            keepSidebarLinkVisible(match.link);
 
             const sectionName = match.link.textContent.trim();
             if (sectionName && !viewedSections.has(sectionName)) {
