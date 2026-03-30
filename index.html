@@ -426,6 +426,7 @@
       background: rgba(0, 0, 0, 0.85);
       padding: 24px;
       cursor: zoom-out;
+      overscroll-behavior: contain;
     }
 
     .lightbox[hidden] {
@@ -439,6 +440,10 @@
       border-radius: 12px;
       box-shadow: var(--shadow);
       touch-action: auto;
+      transform-origin: center center;
+      will-change: transform;
+      user-select: none;
+      -webkit-user-drag: none;
     }
 
     @media (max-width: 900px) {
@@ -457,13 +462,14 @@
       }
 
       .topbar {
-        flex-wrap: wrap;
-        align-items: flex-start;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 12px;
       }
 
       .brand {
         min-width: 0;
-        flex: 1 1 auto;
+        flex: 0 0 auto;
       }
 
       .content {
@@ -471,20 +477,22 @@
       }
 
       .topbar-controls {
-        width: 100%;
-        flex-wrap: wrap;
-        justify-content: space-between;
+        width: auto;
+        min-width: 0;
+        flex: 1 1 auto;
+        flex-wrap: nowrap;
+        justify-content: flex-end;
         gap: 10px;
       }
 
       .search-wrap {
-        flex: 1 1 100%;
+        flex: 1 1 auto;
         min-width: 0;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
       }
 
       .search-box-wrap {
-        flex: 1 1 100%;
+        flex: 1 1 auto;
         min-width: 0;
       }
 
@@ -502,13 +510,8 @@
         display: none;
       }
 
-      .topbar-controls {
-        gap: 10px;
-      }
-
       .user-controls {
-        gap: 10px;
-        flex-wrap: wrap;
+        display: none;
       }
 
       .control-label {
@@ -527,6 +530,10 @@
         width: 100% !important;
         box-sizing: border-box;
         padding: 20px 16px !important;
+      }
+
+      .google-export span[style*="display: inline-block"] {
+        max-width: 100% !important;
       }
 
       .google-export img,
@@ -1391,14 +1398,75 @@
       const lightbox = document.getElementById("lightbox");
       const lightboxImg = document.getElementById("lightboxImg");
       const lightboxVideo = document.getElementById("lightboxVideo");
+      const viewportMeta = document.querySelector('meta[name="viewport"]');
+      const defaultViewportContent = viewportMeta
+        ? (viewportMeta.getAttribute("content") || "width=device-width, initial-scale=1")
+        : "width=device-width, initial-scale=1";
+      let activeLightboxMedia = null;
       let lightboxGestureActive = false;
       let lightboxTouchMoved = false;
       let lightboxTouchStartX = 0;
       let lightboxTouchStartY = 0;
       let lastLightboxCloseAt = 0;
+      let lightboxScale = 1;
+      let lightboxTranslateX = 0;
+      let lightboxTranslateY = 0;
+      let pinchStartDistance = 0;
+      let pinchStartScale = 1;
+      let panStartX = 0;
+      let panStartY = 0;
+      let panStartTranslateX = 0;
+      let panStartTranslateY = 0;
+
+      function setViewportPinchEnabled(enabled) {
+        if (!viewportMeta) return;
+        viewportMeta.setAttribute(
+          "content",
+          enabled
+            ? defaultViewportContent
+            : "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+        );
+      }
+
+      function applyLightboxTransform() {
+        if (!activeLightboxMedia) return;
+        activeLightboxMedia.style.transform =
+          `translate(${lightboxTranslateX}px, ${lightboxTranslateY}px) scale(${lightboxScale})`;
+      }
+
+      function resetLightboxTransform() {
+        lightboxScale = 1;
+        lightboxTranslateX = 0;
+        lightboxTranslateY = 0;
+        pinchStartDistance = 0;
+        pinchStartScale = 1;
+        panStartX = 0;
+        panStartY = 0;
+        panStartTranslateX = 0;
+        panStartTranslateY = 0;
+
+        [lightboxImg, lightboxVideo].forEach((media) => {
+          media.style.transform = "";
+        });
+      }
+
+      function setActiveLightboxMedia(media) {
+        activeLightboxMedia = media;
+        resetLightboxTransform();
+      }
+
+      function getTouchDistance(touches) {
+        if (touches.length < 2) return 0;
+        const dx = touches[0].clientX - touches[1].clientX;
+        const dy = touches[0].clientY - touches[1].clientY;
+        return Math.hypot(dx, dy);
+      }
       
       function resetLightbox() {
         lastLightboxCloseAt = Date.now();
+        setViewportPinchEnabled(true);
+        resetLightboxTransform();
+        activeLightboxMedia = null;
         lightbox.hidden = true;
         lightboxImg.hidden = true;
         lightboxImg.removeAttribute("src");
@@ -1427,6 +1495,8 @@
 
           lightboxVideo.pause();
           lightboxVideo.hidden = true;
+          setActiveLightboxMedia(lightboxImg);
+          setViewportPinchEnabled(false);
           lightboxImg.src = img.src;
           lightboxImg.hidden = false;
           lightbox.hidden = false;
@@ -1466,11 +1536,92 @@
             lightboxVideo.appendChild(mp4Source);
           }
 
+          setActiveLightboxMedia(lightboxVideo);
+          setViewportPinchEnabled(false);
           lightboxVideo.hidden = false;
           lightbox.hidden = false;
           lightboxVideo.load();
           lightboxVideo.play().catch(() => {});
         });
+      });
+
+      [lightboxImg, lightboxVideo].forEach((media) => {
+        media.addEventListener("touchstart", (event) => {
+          if (lightbox.hidden || media !== activeLightboxMedia) return;
+
+          if (event.touches.length === 2) {
+            lightboxGestureActive = true;
+            lightboxTouchMoved = true;
+            pinchStartDistance = getTouchDistance(event.touches);
+            pinchStartScale = lightboxScale;
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+          }
+
+          if (event.touches.length === 1 && lightboxScale > 1) {
+            lightboxGestureActive = true;
+            lightboxTouchMoved = true;
+            panStartX = event.touches[0].clientX;
+            panStartY = event.touches[0].clientY;
+            panStartTranslateX = lightboxTranslateX;
+            panStartTranslateY = lightboxTranslateY;
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }, { passive: false });
+
+        media.addEventListener("touchmove", (event) => {
+          if (lightbox.hidden || media !== activeLightboxMedia) return;
+
+          if (event.touches.length === 2) {
+            const distance = getTouchDistance(event.touches);
+            if (!pinchStartDistance) {
+              pinchStartDistance = distance;
+              pinchStartScale = lightboxScale;
+            }
+
+            lightboxScale = Math.max(1, Math.min(4, pinchStartScale * (distance / Math.max(pinchStartDistance, 1))));
+            lightboxTouchMoved = true;
+            event.preventDefault();
+            event.stopPropagation();
+            applyLightboxTransform();
+            return;
+          }
+
+          if (event.touches.length === 1 && lightboxScale > 1) {
+            lightboxTranslateX = panStartTranslateX + (event.touches[0].clientX - panStartX);
+            lightboxTranslateY = panStartTranslateY + (event.touches[0].clientY - panStartY);
+            lightboxTouchMoved = true;
+            event.preventDefault();
+            event.stopPropagation();
+            applyLightboxTransform();
+          }
+        }, { passive: false });
+
+        media.addEventListener("touchend", (event) => {
+          if (lightbox.hidden || media !== activeLightboxMedia) return;
+
+          if (event.touches.length === 1 && lightboxScale > 1) {
+            panStartX = event.touches[0].clientX;
+            panStartY = event.touches[0].clientY;
+            panStartTranslateX = lightboxTranslateX;
+            panStartTranslateY = lightboxTranslateY;
+          }
+
+          if (event.touches.length === 0) {
+            pinchStartDistance = 0;
+            pinchStartScale = lightboxScale;
+            if (lightboxScale <= 1.01) {
+              resetLightboxTransform();
+            }
+          }
+
+          if (lightboxGestureActive || lightboxScale > 1) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }, true);
       });
 
       lightbox.addEventListener("click", (event) => {
@@ -1519,6 +1670,11 @@
           event.preventDefault();
           event.stopPropagation();
           resetLightbox();
+          return;
+        }
+
+        if (event.touches.length === 0) {
+          lightboxTouchMoved = false;
         }
       }, true);
 
@@ -1526,6 +1682,36 @@
         if (event.key === "Escape") {
           resetLightbox();
         }
+      });
+    }
+
+    function normalizeMobileInlineMedia() {
+      if (window.innerWidth > 900) return;
+
+      const content = document.getElementById("content");
+      if (!content) return;
+
+      const maxWidth = content.clientWidth;
+      document.querySelectorAll("#content img[data-guide-media='1'], #content video[data-guide-media='1']").forEach((media) => {
+        const wrapper = media.parentElement;
+        if (!(wrapper instanceof HTMLElement)) return;
+
+        const wrapperWidth = parseFloat(wrapper.style.width || "0");
+        const mediaWidth = parseFloat(media.style.width || "0");
+        const effectiveWidth = Math.max(wrapperWidth, mediaWidth);
+
+        if (effectiveWidth <= maxWidth + 1) return;
+
+        wrapper.style.display = "block";
+        wrapper.style.width = "100%";
+        wrapper.style.maxWidth = "100%";
+        wrapper.style.height = "auto";
+
+        media.style.display = "block";
+        media.style.width = "100%";
+        media.style.maxWidth = "100%";
+        media.style.height = "auto";
+        media.style.marginLeft = "0";
       });
     }
 
@@ -1814,6 +2000,8 @@
       prioritizeMediaFromHash();
     });
 
+    window.addEventListener("resize", normalizeMobileInlineMedia);
+
     ensureHeadingIds();
     const outline = extractOutlineLinks();
     buildSidebar(outline);
@@ -1827,6 +2015,7 @@
     loadFontScale();
     loadReadingLineHeight();
     loadContentMaxWidth();
+    normalizeMobileInlineMedia();
     startMediaLoading();
     scrollToHashTarget();
     prioritizeMediaFromHash();
