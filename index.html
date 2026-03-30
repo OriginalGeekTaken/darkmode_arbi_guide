@@ -550,6 +550,15 @@
         .replace(/-+/g, "-");
     }
 
+    function normalizeHeadingText(text) {
+      return (text || "").replace(/\s+/g, " ").trim();
+    }
+
+    function makeReadableHash(text) {
+      const normalized = normalizeHeadingText(text);
+      return normalized ? `#${encodeURIComponent(normalized)}` : "#";
+    }
+
     function trackEvent(name, params = {}) {
       if (typeof window.gtag !== "function") return;
       window.gtag("event", name, params);
@@ -748,6 +757,7 @@
       candidates.forEach((item) => {
         outline.push({
           href: item.href,
+          sidebarHref: makeReadableHash(item.text),
           text: item.text,
           depth: getDepthFromOutlineIndent(item.anchor, root, indentLevels)
         });
@@ -816,7 +826,32 @@
     function resolveTargetFromHref(href) {
       if (!href || !href.startsWith("#")) return null;
       const rawId = href.slice(1);
-      return document.getElementById(rawId);
+      const decodedId = decodeURIComponent(rawId);
+
+      return (
+        document.getElementById(rawId) ||
+        document.getElementById(decodedId) ||
+        Array.from(document.querySelectorAll(".google-export h1, h2, h3")).find((heading) => {
+          const headingText = normalizeHeadingText(heading.textContent);
+          return (
+            headingText === decodedId ||
+            slugify(headingText) === slugify(decodedId) ||
+            heading.id === slugify(decodedId)
+          );
+        }) ||
+        null
+      );
+    }
+
+    function resolveSidebarLinkTarget(link) {
+      if (!link) return null;
+
+      const targetId = link.dataset.targetId?.trim();
+      if (targetId) {
+        return document.getElementById(targetId) || resolveTargetFromHref(`#${targetId}`);
+      }
+
+      return resolveTargetFromHref(link.getAttribute("href"));
     }
 
     function keepSidebarLinkVisible(link) {
@@ -862,14 +897,20 @@
 
       outline.forEach((item) => {
         const link = document.createElement("a");
-        link.href = item.href;
+        link.href = item.sidebarHref || item.href;
         link.textContent = item.text;
         link.className = `depth-${item.depth}`;
 
+        const target = resolveTargetFromHref(item.href);
+        if (target?.id) {
+          link.dataset.targetId = target.id;
+        }
+
         link.addEventListener("click", (event) => {
           event.preventDefault();
-          const target = resolveTargetFromHref(item.href);
+          const target = resolveSidebarLinkTarget(link);
           if (target) {
+            window.history.pushState(null, "", link.getAttribute("href"));
             prioritizeMediaForHeading(target);
             target.scrollIntoView({
               behavior: "smooth",
@@ -887,8 +928,7 @@
 
       const targets = links
         .map((link) => {
-          const href = link.getAttribute("href");
-          const target = resolveTargetFromHref(href);
+          const target = resolveSidebarLinkTarget(link);
           if (!target) return null;
           return { link, target };
         })
