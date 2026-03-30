@@ -1,12 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-82E94132ZG"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-82E94132ZG');
+    window.gtag = window.gtag || function gtag(){dataLayer.push(arguments);};
+    window.gtag('js', new Date());
+    window.gtag('config', 'G-82E94132ZG');
+
+    (function() {
+      const analyticsSrc = "https://www.googletagmanager.com/gtag/js?id=G-82E94132ZG";
+      let analyticsRequested = false;
+
+      function injectAnalyticsScript() {
+        if (analyticsRequested) return;
+        analyticsRequested = true;
+
+        const script = document.createElement("script");
+        script.async = true;
+        script.src = analyticsSrc;
+        document.head.appendChild(script);
+      }
+
+      function scheduleAnalyticsLoad() {
+        if ("requestIdleCallback" in window) {
+          window.requestIdleCallback(injectAnalyticsScript, { timeout: 2000 });
+          return;
+        }
+        window.setTimeout(injectAnalyticsScript, 1500);
+      }
+
+      if (document.readyState === "complete") {
+        scheduleAnalyticsLoad();
+      } else {
+        window.addEventListener("load", scheduleAnalyticsLoad, { once: true });
+      }
+
+      ["pointerdown", "keydown", "touchstart"].forEach((eventName) => {
+        window.addEventListener(eventName, injectAnalyticsScript, {
+          once: true,
+          passive: true
+        });
+      });
+    })();
   </script>
 
   <meta charset="utf-8">
@@ -557,7 +592,10 @@
 <body>
   <header class="topbar">
     <a class="brand" href="https://discord.gg/Arbitrations" target="_blank" rel="noopener noreferrer">
-      <img src="./logo.png" alt="Arbitrations Logo" class="brand-logo">
+      <picture>
+        <source srcset="./logo.webp" type="image/webp">
+        <img src="./logo.png" alt="Arbitrations Logo" class="brand-logo" width="42" height="42">
+      </picture>
       <span>Warframe Arbitrations Guide</span>
     </a>
 
@@ -903,9 +941,24 @@
 
     function flashHeading(target) {
       if (!target) return;
+
+      const priorFrameId = Number(target.dataset.flashFrameId || 0);
+      if (priorFrameId) {
+        window.cancelAnimationFrame(priorFrameId);
+      }
+
       target.classList.remove("section-jump-flash");
-      void target.offsetWidth;
-      target.classList.add("section-jump-flash");
+
+      const frameId = window.requestAnimationFrame(() => {
+        const nestedFrameId = window.requestAnimationFrame(() => {
+          target.classList.add("section-jump-flash");
+          delete target.dataset.flashFrameId;
+        });
+
+        target.dataset.flashFrameId = String(nestedFrameId);
+      });
+
+      target.dataset.flashFrameId = String(frameId);
     }
 
     function scheduleHeadingFlash(target, delayMs) {
