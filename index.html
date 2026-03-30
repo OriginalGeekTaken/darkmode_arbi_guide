@@ -902,10 +902,28 @@
       target.classList.add("section-jump-flash");
     }
 
+    function scheduleHeadingFlash(target, delayMs) {
+      if (!target) return;
+
+      const priorTimer = Number(target.dataset.flashTimerId || 0);
+      if (priorTimer) {
+        window.clearTimeout(priorTimer);
+      }
+
+      const timerId = window.setTimeout(() => {
+        flashHeading(target);
+        delete target.dataset.flashTimerId;
+      }, Math.max(0, delayMs));
+
+      target.dataset.flashTimerId = String(timerId);
+    }
+
     function scrollToHeading(target, behavior = "smooth", shouldFlash = true) {
       if (!target) return;
 
-      const top = window.scrollY + target.getBoundingClientRect().top - getHeadingScrollOffset();
+      const currentTop = window.scrollY;
+      const top = currentTop + target.getBoundingClientRect().top - getHeadingScrollOffset();
+      const distance = Math.abs(top - currentTop);
 
       window.scrollTo({
         top: Math.max(0, Math.round(top)),
@@ -913,7 +931,10 @@
       });
 
       if (shouldFlash) {
-        flashHeading(target);
+        const flashDelay = behavior === "smooth"
+          ? Math.min(700, Math.max(180, distance * 0.45))
+          : 0;
+        scheduleHeadingFlash(target, flashDelay);
       }
     }
 
