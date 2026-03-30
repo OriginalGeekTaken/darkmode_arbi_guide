@@ -98,6 +98,7 @@
       --font-scale: 1;
       --reading-line-height: 1.55;
       --content-max-width: 1200px;
+      --topbar-offset: 67px;
     }
 
     * {
@@ -286,19 +287,34 @@
     .layout {
       display: grid;
       grid-template-columns: 300px minmax(0, 1fr);
-      min-height: calc(100vh - 67px);
+      min-height: calc(100vh - var(--topbar-offset));
     }
 
     .sidebar {
       position: sticky;
-      top: 67px;
-      height: calc(100vh - 67px);
-      overflow: auto;
-      overscroll-behavior: contain;
-      padding: 18px 14px 24px;
+      top: var(--topbar-offset);
+      height: calc(100vh - var(--topbar-offset));
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
       box-sizing: border-box;
       background: var(--panel);
       border-right: 1px solid var(--border);
+    }
+
+    .sidebar-updated {
+      padding: 5px 10px 6px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 15px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-links {
+      flex: 1 1 auto;
+      overflow: auto;
+      overscroll-behavior: contain;
+      padding: 18px 14px 24px;
     }
 
     .sidebar a {
@@ -640,7 +656,10 @@
   </header>
 
   <div class="layout">
-    <aside id="sidebar" class="sidebar"></aside>
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-updated">Last updated: 2026-03-30</div>
+      <div id="sidebarLinks" class="sidebar-links"></div>
+    </aside>
 
     <main class="main">
       <article id="content" class="content">
@@ -697,6 +716,17 @@
     function makeReadableHash(text) {
       const normalized = normalizeHeadingText(text);
       return normalized ? `#${encodeURIComponent(normalized)}` : "#";
+    }
+
+    function getTopbarHeight() {
+      const topbar = document.querySelector(".topbar");
+      return topbar ? Math.ceil(topbar.getBoundingClientRect().height) : 0;
+    }
+
+    function syncTopbarOffset() {
+      const topbarHeight = getTopbarHeight();
+      if (!topbarHeight) return;
+      document.documentElement.style.setProperty("--topbar-offset", `${topbarHeight}px`);
     }
 
     function trackEvent(name, params = {}) {
@@ -941,8 +971,7 @@
     }
 
     function getHeadingScrollOffset() {
-      const topbar = document.querySelector(".topbar");
-      const topbarHeight = topbar ? topbar.getBoundingClientRect().height : 0;
+      const topbarHeight = getTopbarHeight();
       return Math.max(16, Math.round(topbarHeight + 8));
     }
 
@@ -1004,8 +1033,12 @@
       }
     }
 
+    function getSidebarScrollContainer() {
+      return document.getElementById("sidebarLinks") || document.getElementById("sidebar");
+    }
+
     function setupSidebarScrollLock() {
-      const sidebar = document.getElementById("sidebar");
+      const sidebar = getSidebarScrollContainer();
       if (!sidebar) return;
 
       sidebar.addEventListener("wheel", (event) => {
@@ -1024,7 +1057,9 @@
 
     function buildSidebar(outline) {
       const sidebar = document.getElementById("sidebar");
-      sidebar.innerHTML = "";
+      const linkContainer = getSidebarScrollContainer();
+      if (!sidebar || !linkContainer) return;
+      linkContainer.innerHTML = "";
 
       outline.forEach((item) => {
         const link = document.createElement("a");
@@ -1047,7 +1082,7 @@
           }
         });
 
-        sidebar.appendChild(link);
+        linkContainer.appendChild(link);
       });
     }
 
@@ -1056,7 +1091,7 @@
     function keepActiveSidebarLinkVisible(link) {
       if (!link) return;
 
-      const sidebar = document.getElementById("sidebar");
+      const sidebar = getSidebarScrollContainer();
       if (!sidebar || window.matchMedia("(max-width: 920px)").matches) return;
 
       if (sidebarRevealFrame) {
@@ -2038,8 +2073,12 @@
       prioritizeMediaFromHash();
     });
 
-    window.addEventListener("resize", normalizeMobileInlineMedia);
+    window.addEventListener("resize", () => {
+      syncTopbarOffset();
+      normalizeMobileInlineMedia();
+    });
 
+    syncTopbarOffset();
     ensureHeadingIds();
     const outline = extractOutlineLinks();
     buildSidebar(outline);
