@@ -839,15 +839,32 @@
       applyContentMaxWidth();
     }
 
-    function getOutlineItemDepth(anchor) {
-      const block = anchor?.closest("p, div, h1, h2, h3");
+    function getOutlineBlock(anchor) {
+      return anchor?.closest("p, div, h1, h2, h3") || null;
+    }
+
+    function getOutlineIndent(anchor) {
+      const block = getOutlineBlock(anchor);
+      if (!block) return 0;
+
+      const computed = window.getComputedStyle(block);
+      const marginLeft = parseFloat(computed.marginLeft) || 0;
+      const paddingLeft = parseFloat(computed.paddingLeft) || 0;
+      const textIndent = parseFloat(computed.textIndent) || 0;
+      return Math.max(0, marginLeft + paddingLeft + Math.max(0, textIndent));
+    }
+
+    function getOutlineFallbackDepth(anchor) {
+      const block = getOutlineBlock(anchor);
       if (!block) return 0;
 
       if (
         block.classList.contains("c10") ||
         block.classList.contains("c30") ||
         block.classList.contains("c35") ||
-        block.classList.contains("c37")
+        block.classList.contains("c37") ||
+        block.classList.contains("c39") ||
+        block.classList.contains("c29")
       ) {
         return 1;
       }
@@ -855,16 +872,55 @@
       if (
         block.classList.contains("c23") ||
         block.classList.contains("c52") ||
-        block.classList.contains("c54")
+        block.classList.contains("c54") ||
+        block.classList.contains("c25")
       ) {
         return 2;
       }
 
-      if (block.classList.contains("c34")) {
+      if (block.classList.contains("c34") || block.classList.contains("c33")) {
         return 3;
       }
 
       return 0;
+    }
+
+    function createOutlineDepthResolver(candidates) {
+      const rawIndents = candidates
+        .map((item) => getOutlineIndent(item.anchor))
+        .filter((value) => Number.isFinite(value));
+
+      const levels = [];
+      rawIndents
+        .sort((a, b) => a - b)
+        .forEach((indent) => {
+          const prior = levels[levels.length - 1];
+          if (prior === undefined || Math.abs(indent - prior) > 6) {
+            levels.push(indent);
+          }
+        });
+
+      const hasUsableIndent = levels.length > 1 || (levels.length === 1 && levels[0] > 0);
+
+      return (anchor) => {
+        if (!hasUsableIndent) {
+          return getOutlineFallbackDepth(anchor);
+        }
+
+        const indent = getOutlineIndent(anchor);
+        let closestIndex = 0;
+        let closestDistance = Number.POSITIVE_INFINITY;
+
+        levels.forEach((level, index) => {
+          const distance = Math.abs(indent - level);
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            closestIndex = index;
+          }
+        });
+
+        return Math.max(0, Math.min(3, closestIndex));
+      };
     }
 
     function extractOutlineLinks() {
@@ -903,12 +959,14 @@
         });
       }
 
+      const resolveDepth = createOutlineDepthResolver(candidates);
+
       candidates.forEach((item) => {
         outline.push({
           href: item.href,
           sidebarHref: makeReadableHash(item.text),
           text: item.text,
-          depth: getOutlineItemDepth(item.anchor)
+          depth: resolveDepth(item.anchor)
         });
       });
 
