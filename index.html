@@ -387,7 +387,7 @@
     }
 
     .google-export .section-jump-flash {
-      animation: sectionJumpFlash 1.2s ease-in-out 2;
+      animation: sectionJumpFlash 0.72s ease-out 2;
     }
 
     @keyframes sectionJumpFlash {
@@ -396,15 +396,22 @@
         box-shadow: none;
       }
 
-      30% {
-        background: rgba(114, 199, 255, 0.16);
-        box-shadow: 0 0 0 3px rgba(114, 199, 255, 0.2);
+      28% {
+        background: rgba(114, 199, 255, 0.3);
+        box-shadow: 0 0 0 4px rgba(114, 199, 255, 0.38);
       }
 
-      55% {
+      52% {
         background: transparent;
         box-shadow: none;
       }
+    }
+
+    ::target-text {
+      background: rgba(114, 199, 255, 0.42);
+      color: #ffffff;
+      text-shadow: none;
+      border-radius: 3px;
     }
 
     mark.search-hit {
