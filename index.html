@@ -970,6 +970,17 @@
         });
       });
 
+      const introTarget = getGuideTopTarget();
+      if (introTarget?.id) {
+        outline.unshift({
+          href: "#introduction",
+          sidebarHref: "#introduction",
+          text: "Introduction",
+          depth: 0,
+          targetId: introTarget.id
+        });
+      }
+
       return outline;
     }
 
@@ -985,6 +996,17 @@
         used.add(id);
         heading.id = id;
       });
+    }
+
+    function getGuideTopTarget() {
+      const root = document.querySelector(".google-export");
+      if (!root) return null;
+
+      return (
+        root.querySelector(".title[id]") ||
+        root.querySelector("h1[id], h2[id], h3[id]") ||
+        root.querySelector("[id]")
+      );
     }
 
     function resolveTargetFromHref(href) {
@@ -1115,7 +1137,9 @@
         link.textContent = item.text;
         link.className = `depth-${item.depth}`;
 
-        const target = resolveTargetFromHref(item.href);
+        const target = item.targetId
+          ? document.getElementById(item.targetId)
+          : resolveTargetFromHref(item.href);
         if (target?.id) {
           link.dataset.targetId = target.id;
         }
