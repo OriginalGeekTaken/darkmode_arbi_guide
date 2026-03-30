@@ -263,8 +263,10 @@
     .sidebar {
       position: sticky;
       top: 67px;
+      align-self: start;
       height: calc(100vh - 67px);
-      overflow: auto;
+      overflow-y: auto;
+      overflow-x: hidden;
       overscroll-behavior: contain;
       padding: 18px 14px 24px;
       background: var(--panel);
