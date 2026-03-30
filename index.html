@@ -1137,7 +1137,6 @@
           const match = targets.find((item) => item.target === bestEntry.target);
           if (match) {
             match.link.classList.add("active");
-            keepSidebarLinkVisible(match.link);
 
             const sectionName = match.link.textContent.trim();
             if (sectionName && !viewedSections.has(sectionName)) {
