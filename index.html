@@ -1522,10 +1522,11 @@
         closeLightbox();
       }
 
-      function bindLightboxGestures(mediaEl) {
-        mediaEl.addEventListener("pointerdown", (event) => {
+      function bindLightboxGestures() {
+        lightbox.addEventListener("pointerdown", (event) => {
+          if (event.target !== lightbox && event.target !== activeMedia) return;
           if (event.pointerType !== "touch") return;
-          mediaEl.setPointerCapture(event.pointerId);
+          lightbox.setPointerCapture(event.pointerId);
           activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
           suppressClickClose = true;
 
@@ -1544,9 +1545,10 @@
           }
         });
 
-        mediaEl.addEventListener("pointermove", (event) => {
+        lightbox.addEventListener("pointermove", (event) => {
           if (event.pointerType !== "touch") return;
           if (!activePointers.has(event.pointerId)) return;
+          if (!activeMedia) return;
 
           activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
           const points = Array.from(activePointers.values());
@@ -1617,8 +1619,8 @@
           }
         }
 
-        mediaEl.addEventListener("pointerup", releasePointer);
-        mediaEl.addEventListener("pointercancel", releasePointer);
+        lightbox.addEventListener("pointerup", releasePointer);
+        lightbox.addEventListener("pointercancel", releasePointer);
       }
 
       function markMobileResponsiveMedia() {
@@ -1639,8 +1641,7 @@
 
       resetLightbox();
       markMobileResponsiveMedia();
-      bindLightboxGestures(lightboxImg);
-      bindLightboxGestures(lightboxVideo);
+      bindLightboxGestures();
 
       document.querySelectorAll("#content img[data-guide-media='1']").forEach((img) => {
         img.addEventListener("click", async () => {
