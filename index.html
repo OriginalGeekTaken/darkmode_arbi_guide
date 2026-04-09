@@ -125,6 +125,17 @@
       border-bottom: 1px solid var(--border);
     }
 
+    .mobile-progress {
+      display: none;
+    }
+
+    .mobile-progress-bar {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #72c7ff 0%, #4166f5 100%);
+      transition: width 0.08s linear;
+    }
+
     .brand {
       display: flex;
       align-items: center;
@@ -291,6 +302,10 @@
       box-sizing: border-box;
       background: var(--panel);
       border-right: 1px solid var(--border);
+    }
+
+    .mobile-sidebar-backdrop {
+      display: none;
     }
 
     .sidebar-updated {
@@ -517,12 +532,47 @@
         overflow-x: clip;
       }
 
+      body.mobile-sidebar-open {
+        overflow: hidden;
+      }
+
       .layout {
         grid-template-columns: 1fr;
       }
 
       .sidebar {
-        display: none;
+        display: flex;
+        position: fixed;
+        top: calc(var(--topbar-offset) + 4px);
+        left: 0;
+        bottom: 0;
+        height: auto;
+        width: min(300px, 75vw);
+        max-width: 75vw;
+        z-index: 1300;
+        transform: translateX(-100%);
+        transition: transform 0.22s ease;
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+      }
+
+      body.mobile-sidebar-open .sidebar {
+        transform: translateX(0);
+      }
+
+      .mobile-sidebar-backdrop {
+        position: fixed;
+        inset: calc(var(--topbar-offset) + 4px) 0 0;
+        z-index: 1200;
+        background: rgba(0, 0, 0, 0.45);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.22s ease;
+      }
+
+      body.mobile-sidebar-open .mobile-sidebar-backdrop {
+        display: block;
+        opacity: 1;
+        pointer-events: auto;
       }
 
       .topbar {
@@ -534,6 +584,15 @@
       .brand {
         min-width: 0;
         flex: 0 0 auto;
+      }
+
+      .mobile-progress {
+        position: sticky;
+        top: var(--topbar-offset);
+        z-index: 999;
+        display: block;
+        height: 4px;
+        background: rgba(39, 50, 66, 0.85);
       }
 
       .content {
@@ -619,7 +678,15 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="https://discord.gg/Arbitrations" target="_blank" rel="noopener noreferrer">
+    <a
+      id="brandLink"
+      class="brand"
+      href="https://discord.gg/Arbitrations"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-controls="sidebar"
+      aria-expanded="false"
+    >
       <img src="./logo.png" alt="Arbitrations Logo" class="brand-logo" width="42" height="42">
       <span>Warframe Arbitrations Guide</span>
     </a>
@@ -666,9 +733,15 @@
     </div>
   </header>
 
+  <div id="mobileProgress" class="mobile-progress" aria-hidden="true">
+    <div id="mobileProgressBar" class="mobile-progress-bar"></div>
+  </div>
+
+  <div id="mobileSidebarBackdrop" class="mobile-sidebar-backdrop" hidden></div>
+
   <div class="layout">
     <aside id="sidebar" class="sidebar">
-      <div class="sidebar-updated">Last updated: 2026-04-08</div>
+      <div class="sidebar-updated">Last updated: 2026-04-09</div>
       <div id="sidebarLinks" class="sidebar-links"></div>
     </aside>
 
@@ -703,6 +776,7 @@
     const viewedSections = new Set();
     let searchTrackTimer = null;
     let lastTrackedSearch = "";
+    let mobileSidebarMediaQuery = null;
 
     const mediaManager = {
       all: [],
@@ -732,6 +806,23 @@
     function getTopbarHeight() {
       const topbar = document.querySelector(".topbar");
       return topbar ? Math.ceil(topbar.getBoundingClientRect().height) : 0;
+    }
+
+    function isMobileLayout() {
+      if (!mobileSidebarMediaQuery) {
+        mobileSidebarMediaQuery = window.matchMedia("(max-width: 900px)");
+      }
+
+      return mobileSidebarMediaQuery.matches;
+    }
+
+    function getMobileProgressHeight() {
+      if (!isMobileLayout()) return 0;
+
+      const progress = document.getElementById("mobileProgress");
+      if (!progress) return 0;
+
+      return Math.ceil(progress.getBoundingClientRect().height);
     }
 
     function syncTopbarOffset() {
@@ -1095,7 +1186,7 @@
 
     function getHeadingScrollOffset() {
       const topbarHeight = getTopbarHeight();
-      return Math.max(16, Math.round(topbarHeight + 8));
+      return Math.max(16, Math.round(topbarHeight + getMobileProgressHeight() + 8));
     }
 
     function flashHeading(target) {
@@ -1160,6 +1251,33 @@
       return document.getElementById("sidebarLinks") || document.getElementById("sidebar");
     }
 
+    function setMobileSidebarOpen(isOpen) {
+      const body = document.body;
+      const backdrop = document.getElementById("mobileSidebarBackdrop");
+      const brandLink = document.getElementById("brandLink");
+
+      if (!body || !backdrop || !brandLink) return;
+
+      if (!isMobileLayout()) {
+        body.classList.remove("mobile-sidebar-open");
+        backdrop.hidden = true;
+        brandLink.setAttribute("aria-expanded", "false");
+        return;
+      }
+
+      body.classList.toggle("mobile-sidebar-open", isOpen);
+      backdrop.hidden = !isOpen;
+      brandLink.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    }
+
+    function closeMobileSidebar() {
+      setMobileSidebarOpen(false);
+    }
+
+    function toggleMobileSidebar() {
+      setMobileSidebarOpen(!document.body.classList.contains("mobile-sidebar-open"));
+    }
+
     function setupSidebarScrollLock() {
       const sidebar = getSidebarScrollContainer();
       if (!sidebar) return;
@@ -1204,6 +1322,7 @@
             window.history.pushState(null, "", link.getAttribute("href"));
             prioritizeMediaForHeading(target);
             scrollToHeading(target, "smooth");
+            closeMobileSidebar();
           }
         });
 
@@ -1928,6 +2047,7 @@
 
     function setupScrollTracking() {
       const scrollRoot = document.scrollingElement || document.documentElement;
+      const progressBar = document.getElementById("mobileProgressBar");
       let pendingScrollCheck = false;
 
       function checkScrollDepth() {
@@ -1935,6 +2055,14 @@
         const scrollTop = scrollRoot?.scrollTop || window.scrollY || 0;
         const viewport = window.innerHeight || scrollRoot?.clientHeight || 0;
         const fullHeight = scrollRoot?.scrollHeight || document.body.scrollHeight || viewport;
+        const maxScrollable = Math.max(0, fullHeight - viewport);
+        const progressPercent = maxScrollable <= 0
+          ? 100
+          : Math.max(0, Math.min(100, Math.round((scrollTop / maxScrollable) * 100)));
+
+        if (progressBar) {
+          progressBar.style.width = `${progressPercent}%`;
+        }
 
         const percent = Math.min(
           100,
@@ -1964,6 +2092,28 @@
       window.addEventListener("scroll", queueScrollDepthCheck, { passive: true });
       window.addEventListener("load", queueScrollDepthCheck);
       checkScrollDepth();
+    }
+
+    function setupMobileSidebar() {
+      const brandLink = document.getElementById("brandLink");
+      const backdrop = document.getElementById("mobileSidebarBackdrop");
+      if (!brandLink || !backdrop) return;
+
+      brandLink.addEventListener("click", (event) => {
+        if (!isMobileLayout()) return;
+        event.preventDefault();
+        toggleMobileSidebar();
+      });
+
+      backdrop.addEventListener("click", () => {
+        closeMobileSidebar();
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          closeMobileSidebar();
+        }
+      });
     }
 
     function setupSearchTracking() {
@@ -2212,11 +2362,14 @@
     window.addEventListener("hashchange", () => {
       scrollToHashTarget("smooth");
       prioritizeMediaFromHash();
+      closeMobileSidebar();
     });
 
     window.addEventListener("resize", () => {
       syncTopbarOffset();
       normalizeMobileInlineMedia();
+      closeMobileSidebar();
+      window.dispatchEvent(new Event("scroll"));
     });
 
     syncTopbarOffset();
@@ -2225,6 +2378,7 @@
     const outline = extractOutlineLinks();
     buildSidebar(outline);
     setupSidebarScrollLock();
+    setupMobileSidebar();
     setupSectionObserver();
     setupImages();
     setupScrollTracking();
