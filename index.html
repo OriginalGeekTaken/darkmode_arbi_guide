@@ -707,11 +707,6 @@
       }
     }
 
-    .easter-egg-toast {
-      bottom: auto;
-      right: auto;
-    }
-
     .easter-egg-toast .media-hint-toast-inner {
       font-size: 28px;
       max-width: 440px;
@@ -2572,10 +2567,6 @@
       toast.setAttribute("aria-live", "polite");
       toast.innerHTML = '<div class="media-hint-toast-inner"><span class="media-hint-toast-icon">' + icon + '</span>' + message + '</div>';
       document.body.appendChild(toast);
-      requestAnimationFrame(() => {
-        toast.style.left = Math.round((window.innerWidth - toast.offsetWidth) / 2) + "px";
-        toast.style.top = Math.round((window.innerHeight - toast.offsetHeight) / 2) + "px";
-      });
       setTimeout(() => {
         toast.classList.add("fade-out");
         setTimeout(() => toast.remove(), 600);
