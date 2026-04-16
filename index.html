@@ -702,9 +702,30 @@
         display: none !important;
       }
 
-      .media-hint-toast {
+      .media-hint-toast:not(.easter-egg-toast) {
         display: none;
       }
+    }
+
+    .easter-egg-toast {
+      bottom: auto;
+      right: auto;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    @keyframes sidebar-void-pulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    .sidebar-glow {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 45%, rgba(114, 199, 255, 0.055) 0%, transparent 68%);
+      pointer-events: none;
+      animation: sidebar-void-pulse 4s ease-in-out infinite;
     }
 
     @keyframes guide-shimmer {
@@ -842,6 +863,7 @@
 
   <div class="layout">
     <aside id="sidebar" class="sidebar">
+      <div class="sidebar-glow" aria-hidden="true"></div>
       <div class="sidebar-updated">Last updated: 2026-04-16</div>
       <div id="sidebarLinks" class="sidebar-links"></div>
     </aside>
@@ -879,6 +901,8 @@
     let readingLineHeight = DEFAULT_READING_LINE_HEIGHT;
     let contentMaxWidth = DEFAULT_CONTENT_MAX_WIDTH;
     let widthAdjustTimer = null;
+    let fontIncreaseCount = 0;
+    let bottomToastFired = false;
 
     const firedScrollMilestones = new Set();
     const viewedSections = new Set();
@@ -2459,6 +2483,11 @@
     document.getElementById("fontIncreaseBtn").addEventListener("click", () => {
       fontScale = Math.min(1.6, +(fontScale + 0.05).toFixed(2));
       applyFontScale();
+      fontIncreaseCount += 1;
+      if (fontIncreaseCount === 5) {
+        fontIncreaseCount = 0;
+        showEasterEggToast("&#129299;", "Surely you can spot all the arbitration drones now!");
+      }
     });
 
     document.getElementById("fontDecreaseBtn").addEventListener("click", () => {
@@ -2524,6 +2553,29 @@
       closeMobileSidebar();
       window.dispatchEvent(new Event("scroll"));
     });
+
+    function showEasterEggToast(icon, message) {
+      const prev = document.getElementById("easterEggToast");
+      if (prev) prev.remove();
+      const toast = document.createElement("div");
+      toast.id = "easterEggToast";
+      toast.className = "media-hint-toast easter-egg-toast";
+      toast.setAttribute("aria-live", "polite");
+      toast.innerHTML = '<div class="media-hint-toast-inner"><span class="media-hint-toast-icon">' + icon + '</span>' + message + '</div>';
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.add("fade-out");
+        setTimeout(() => toast.remove(), 600);
+      }, 5000);
+    }
+
+    window.addEventListener("scroll", () => {
+      if (bottomToastFired) return;
+      if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 80) {
+        bottomToastFired = true;
+        showEasterEggToast("&#127881;", "Congratulations, you read the entire guide! Enjoy the picture of muh gato");
+      }
+    }, { passive: true });
 
     (function showMediaHintToast() {
       const toast = document.getElementById("mediaHintToast");
