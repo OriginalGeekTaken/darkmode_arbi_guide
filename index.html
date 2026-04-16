@@ -708,15 +708,15 @@
     }
 
     .easter-egg-toast .media-hint-toast-inner {
-      font-size: 28px;
-      max-width: 440px;
+      font-size: 23px;
+      max-width: 465px;
       padding: 22px 28px;
       gap: 16px;
       line-height: 1.4;
     }
 
     .easter-egg-toast .media-hint-toast-icon {
-      font-size: 44px;
+      font-size: 36px;
     }
 
     @keyframes sidebar-void-pulse {
@@ -788,13 +788,13 @@
       align-items: center;
       gap: 12px;
       color: var(--text);
-      font-size: 15px;
-      max-width: 310px;
+      font-size: 23px;
+      max-width: 465px;
       line-height: 1.45;
     }
 
     .media-hint-toast-icon {
-      font-size: 24px;
+      font-size: 36px;
       line-height: 1;
       flex-shrink: 0;
     }
@@ -2577,7 +2577,7 @@
       if (bottomToastFired) return;
       if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 80) {
         bottomToastFired = true;
-        showEasterEggToast("&#127881;", "Congratulations, you read the entire guide! Enjoy the picture of muh gato");
+        showEasterEggToast("&#127881;", "Congratulations, you read the entire guide! And you paid your cat tax!");
       }
     }, { passive: true });
 
