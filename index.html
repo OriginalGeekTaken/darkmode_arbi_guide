@@ -299,7 +299,6 @@
       box-sizing: border-box;
       background: var(--panel);
       border-right: 1px solid var(--border);
-      z-index: 3;
     }
 
     .mobile-sidebar-backdrop {
@@ -723,14 +722,12 @@
 
     .particle-canvas {
       position: fixed;
-      top: 0;
-      height: 100vh;
+      inset: var(--topbar-offset) 0 0 0;
+      width: 100vw;
+      height: calc(100vh - var(--topbar-offset));
       pointer-events: none;
       z-index: 2;
     }
-
-    .particle-canvas-left { left: 0; }
-    .particle-canvas-right { right: 0; }
 
     @media (max-width: 900px) {
       .particle-canvas { display: none; }
@@ -868,8 +865,7 @@
   </div>
 
   <div id="mobileSidebarBackdrop" class="mobile-sidebar-backdrop" hidden></div>
-  <canvas id="particleLeft" class="particle-canvas particle-canvas-left" aria-hidden="true"></canvas>
-  <canvas id="particleRight" class="particle-canvas particle-canvas-right" aria-hidden="true"></canvas>
+  <canvas id="particleCanvas" class="particle-canvas" aria-hidden="true"></canvas>
 
   <div class="layout">
     <aside id="sidebar" class="sidebar">
@@ -2599,16 +2595,15 @@
     (function initParticles() {
       const MOBILE_BREAKPOINT = 900;
       const CONTENT_GAP = 20;
-      const COUNT = 18;
+      const COUNT = 36;
       const MAX_DIST = 120;
       const COLOR = "114, 199, 255";
       const content = document.querySelector(".content");
-      const canvases = {
-        left: document.getElementById("particleLeft"),
-        right: document.getElementById("particleRight")
-      };
+      const canvas = document.getElementById("particleCanvas");
 
-      if (!content || !canvases.left || !canvases.right) return;
+      if (!content || !canvas) return;
+
+      const ctx = canvas.getContext("2d");
 
       function createParticle(width, height) {
         return {
@@ -2620,73 +2615,57 @@
         };
       }
 
-      const strips = [
-        {
-          key: "left",
-          canvas: canvases.left,
-          ctx: canvases.left.getContext("2d"),
-          particles: [],
-          cssLeft: 0,
-          cssWidth: 0,
-          cssHeight: 0
-        },
-        {
-          key: "right",
-          canvas: canvases.right,
-          ctx: canvases.right.getContext("2d"),
-          particles: [],
-          cssLeft: 0,
-          cssWidth: 0,
-          cssHeight: 0
-        }
-      ];
-
-      strips.forEach(strip => {
-        strip.particles = Array.from({ length: COUNT }, () => createParticle(1, window.innerHeight));
-      });
+      const state = {
+        cssWidth: 0,
+        cssHeight: 0,
+        particles: Array.from({ length: COUNT }, () => createParticle(window.innerWidth, window.innerHeight))
+      };
 
       function clamp(value, min, max) {
         return Math.min(max, Math.max(min, value));
       }
 
-      function getStripLayout() {
+      function getCanvasLayout() {
+        const topOffset = Math.max(0, getTopbarHeight());
         const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
+        const viewportHeight = Math.max(0, window.innerHeight - topOffset);
         const contentRect = content.getBoundingClientRect();
-        const leftWidth = Math.max(0, Math.round(contentRect.left - CONTENT_GAP));
-        const rightLeft = Math.min(viewportWidth, Math.round(contentRect.right + CONTENT_GAP));
-        const rightWidth = Math.max(0, viewportWidth - rightLeft);
+        const styles = window.getComputedStyle(content);
+        const paddingLeft = parseFloat(styles.paddingLeft) || 0;
+        const paddingRight = parseFloat(styles.paddingRight) || 0;
+        const paddingTop = parseFloat(styles.paddingTop) || 0;
+        const paddingBottom = parseFloat(styles.paddingBottom) || 0;
+        const holeLeft = clamp(Math.round(contentRect.left + paddingLeft - CONTENT_GAP), 0, viewportWidth);
+        const holeRight = clamp(Math.round(contentRect.right - paddingRight + CONTENT_GAP), 0, viewportWidth);
+        const holeTop = clamp(Math.round(contentRect.top - topOffset + paddingTop - CONTENT_GAP), 0, viewportHeight);
+        const holeBottom = clamp(Math.round(contentRect.bottom - topOffset - paddingBottom + CONTENT_GAP), 0, viewportHeight);
 
         return {
-          left: { left: 0, width: leftWidth, height: viewportHeight },
-          right: { left: rightLeft, width: rightWidth, height: viewportHeight }
+          topOffset,
+          width: viewportWidth,
+          height: viewportHeight,
+          hole: {
+            left: Math.min(holeLeft, holeRight),
+            top: Math.min(holeTop, holeBottom),
+            right: Math.max(holeLeft, holeRight),
+            bottom: Math.max(holeTop, holeBottom)
+          }
         };
       }
 
-      function syncStripSize(strip, bounds) {
-        const width = Math.max(0, bounds.width);
-        const height = Math.max(0, bounds.height);
+      function syncCanvasSize(layout) {
+        const width = Math.max(0, layout.width);
+        const height = Math.max(0, layout.height);
+        const previousWidth = state.cssWidth || width;
+        const previousHeight = state.cssHeight || height;
+        const sizeChanged = state.cssWidth !== width || state.cssHeight !== height;
 
-        strip.canvas.style.left = `${bounds.left}px`;
-        strip.canvas.style.right = "auto";
-        strip.canvas.style.width = `${width}px`;
-        strip.canvas.style.height = `${height}px`;
-        strip.canvas.style.display = width > 0 ? "block" : "none";
+        canvas.style.top = `${layout.topOffset}px`;
+        canvas.style.height = `${height}px`;
+        canvas.style.display = width > 0 && height > 0 ? "block" : "none";
 
-        if (width <= 0 || height <= 0) {
-          strip.cssLeft = bounds.left;
-          strip.cssWidth = width;
-          strip.cssHeight = height;
-          return;
-        }
-
-        const previousWidth = strip.cssWidth || width;
-        const previousHeight = strip.cssHeight || height;
-        const sizeChanged = strip.cssWidth !== width || strip.cssHeight !== height;
-
-        strip.cssLeft = bounds.left;
-        strip.cssWidth = width;
-        strip.cssHeight = height;
+        state.cssWidth = width;
+        state.cssHeight = height;
 
         if (!sizeChanged) return;
 
@@ -2694,16 +2673,16 @@
         const pixelWidth = Math.max(1, Math.round(width * dpr));
         const pixelHeight = Math.max(1, Math.round(height * dpr));
 
-        if (strip.canvas.width !== pixelWidth || strip.canvas.height !== pixelHeight) {
-          strip.canvas.width = pixelWidth;
-          strip.canvas.height = pixelHeight;
+        if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+          canvas.width = pixelWidth;
+          canvas.height = pixelHeight;
         }
 
-        strip.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-        strip.particles.forEach((particle, index) => {
+        state.particles.forEach((particle, index) => {
           if (previousWidth <= 0 || previousHeight <= 0 || !Number.isFinite(particle.x) || !Number.isFinite(particle.y)) {
-            strip.particles[index] = createParticle(width, height);
+            state.particles[index] = createParticle(width, height);
             return;
           }
 
@@ -2716,18 +2695,15 @@
       function frame(ts) {
         const isMobile = window.innerWidth <= MOBILE_BREAKPOINT;
         if (isMobile) {
-          strips.forEach(strip => {
-            strip.canvas.style.display = "none";
-            strip.cssWidth = 0;
-            strip.cssHeight = 0;
-          });
+          canvas.style.display = "none";
+          state.cssWidth = 0;
+          state.cssHeight = 0;
           requestAnimationFrame(frame);
           return;
         }
 
-        const layout = getStripLayout();
-        syncStripSize(strips[0], layout.left);
-        syncStripSize(strips[1], layout.right);
+        const layout = getCanvasLayout();
+        syncCanvasSize(layout);
 
         if (ts - lastTs < 33) {
           requestAnimationFrame(frame);
@@ -2735,48 +2711,54 @@
         }
 
         lastTs = ts;
+        const width = state.cssWidth;
+        const height = state.cssHeight;
+        const pts = state.particles;
 
-        strips.forEach(strip => {
-          if (strip.cssWidth <= 0 || strip.cssHeight <= 0) return;
+        if (width <= 0 || height <= 0) {
+          requestAnimationFrame(frame);
+          return;
+        }
 
-          const ctx = strip.ctx;
-          const width = strip.cssWidth;
-          const height = strip.cssHeight;
-          const pts = strip.particles;
+        ctx.clearRect(0, 0, width, height);
 
-          ctx.clearRect(0, 0, width, height);
+        pts.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+          if (p.x < 0 || p.x > width) p.vx *= -1;
+          if (p.y < 0 || p.y > height) p.vy *= -1;
+          p.x = clamp(p.x, 0, width);
+          p.y = clamp(p.y, 0, height);
+        });
 
-          pts.forEach(p => {
-            p.x += p.vx;
-            p.y += p.vy;
-            if (p.x < 0 || p.x > width) p.vx *= -1;
-            if (p.y < 0 || p.y > height) p.vy *= -1;
-            p.x = clamp(p.x, 0, width);
-            p.y = clamp(p.y, 0, height);
-          });
-
-          for (let i = 0; i < pts.length; i += 1) {
-            for (let j = i + 1; j < pts.length; j += 1) {
-              const dx = pts[i].x - pts[j].x;
-              const dy = pts[i].y - pts[j].y;
-              const d = Math.sqrt(dx * dx + dy * dy);
-              if (d < MAX_DIST) {
-                ctx.beginPath();
-                ctx.moveTo(pts[i].x, pts[i].y);
-                ctx.lineTo(pts[j].x, pts[j].y);
-                ctx.strokeStyle = `rgba(${COLOR}, ${((1 - d / MAX_DIST) * 0.25).toFixed(3)})`;
-                ctx.lineWidth = 0.6;
-                ctx.stroke();
-              }
+        for (let i = 0; i < pts.length; i += 1) {
+          for (let j = i + 1; j < pts.length; j += 1) {
+            const dx = pts[i].x - pts[j].x;
+            const dy = pts[i].y - pts[j].y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d < MAX_DIST) {
+              ctx.beginPath();
+              ctx.moveTo(pts[i].x, pts[i].y);
+              ctx.lineTo(pts[j].x, pts[j].y);
+              ctx.strokeStyle = `rgba(${COLOR}, ${((1 - d / MAX_DIST) * 0.25).toFixed(3)})`;
+              ctx.lineWidth = 0.6;
+              ctx.stroke();
             }
           }
-          pts.forEach(p => {
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(${COLOR}, 0.55)`;
-            ctx.fill();
-          });
+        }
+
+        pts.forEach(p => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${COLOR}, 0.55)`;
+          ctx.fill();
         });
+
+        const holeWidth = Math.max(0, layout.hole.right - layout.hole.left);
+        const holeHeight = Math.max(0, layout.hole.bottom - layout.hole.top);
+        if (holeWidth > 0 && holeHeight > 0) {
+          ctx.clearRect(layout.hole.left, layout.hole.top, holeWidth, holeHeight);
+        }
 
         requestAnimationFrame(frame);
       }
