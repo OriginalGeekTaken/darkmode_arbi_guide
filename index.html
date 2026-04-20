@@ -960,6 +960,57 @@
       display: block; width: 100%; height: auto; background: #000; pointer-events: none;
       transform: translateZ(0);
     }
+
+    body.gold-mode {
+      --accent: #FFD228;
+      --active: rgba(255, 210, 40, 0.14);
+      --search-highlight: #CC7700;
+    }
+    body.gold-mode .mobile-progress-bar {
+      background: linear-gradient(90deg, #FFD228 0%, #CC7700 100%);
+    }
+    body.gold-mode .control-buttons button.is-pressed,
+    body.gold-mode .search-wrap button:active,
+    body.gold-mode .search-wrap button.is-pressed {
+      background: rgba(255, 210, 40, 0.24);
+      border-color: #CC7700;
+    }
+    body.gold-mode .sidebar a.active {
+      background: rgba(255, 210, 40, 0.14);
+    }
+    body.gold-mode .google-export a {
+      color: #FFD228 !important;
+    }
+    body.gold-mode mark.search-hit {
+      background: #CC7700 !important;
+    }
+    body.gold-mode .google-export hr::before {
+      background:
+        radial-gradient(ellipse at center, rgba(255,210,40,0.55) 0%, rgba(255,210,40,0.15) 35%, transparent 70%) center / 3% 6px no-repeat,
+        linear-gradient(90deg, transparent 0%, var(--border) 12%, var(--border) 88%, transparent 100%) center / 100% 1px no-repeat;
+    }
+    body.gold-mode .google-export hr::after {
+      animation-name: hrDiamondGold;
+    }
+    @keyframes hrDiamondGold {
+      0%   { box-shadow: 0 0 5px 2px rgba(255,210,40,0.45); }
+      12%  { box-shadow: 0 0 13px 4px rgba(255,210,40,0.95); }
+      52%  { box-shadow: 0 0 4px 1px rgba(255,210,40,0.3); }
+      80%  { box-shadow: 0 0 9px 3px rgba(255,210,40,0.7); }
+      90%  { box-shadow: 0 0 5px 2px rgba(255,210,40,0.45); }
+      100% { box-shadow: 0 0 5px 2px rgba(255,210,40,0.45); }
+    }
+    body.gold-mode .google-export .section-jump-flash {
+      animation-name: sectionJumpFlashGold;
+    }
+    @keyframes sectionJumpFlashGold {
+      0%, 100% { background: transparent; box-shadow: none; }
+      30% { background: rgba(255,210,40,0.16); box-shadow: 0 0 0 3px rgba(255,210,40,0.2); }
+      55% { background: transparent; box-shadow: none; }
+    }
+    body.gold-mode .media-hint-toast::before {
+      background: conic-gradient(from 0deg, transparent 0% 55%, #CC7700 72%, #FFD228 100%);
+    }
   </style>
 </head>
 <body>
@@ -1072,6 +1123,7 @@
     let lastTrackedSearch = "";
     let mobileSidebarMediaQuery = null;
     var particleColor = "114, 199, 255";
+    var particleAlphaMult = 1;
     var particleGoldFired = false;
     var particleCount = 48;
 
@@ -2908,7 +2960,7 @@
               ctx.beginPath();
               ctx.moveTo(pts[i].x, pts[i].y);
               ctx.lineTo(pts[j].x, pts[j].y);
-              ctx.strokeStyle = `rgba(${particleColor}, ${((1 - d / MAX_DIST) * 0.25).toFixed(3)})`;
+              ctx.strokeStyle = `rgba(${particleColor}, ${((1 - d / MAX_DIST) * 0.25 * particleAlphaMult).toFixed(3)})`;
               ctx.lineWidth = 0.6;
               ctx.stroke();
             }
@@ -2918,7 +2970,7 @@
         pts.forEach(p => {
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(${particleColor}, 0.55)`;
+          ctx.fillStyle = `rgba(${particleColor}, ${Math.min(1, 0.55 * particleAlphaMult).toFixed(3)})`;
           ctx.fill();
         });
 
@@ -2998,7 +3050,9 @@
             if (!particleGoldFired) {
               particleGoldFired = true;
               particleColor = "255, 210, 40";
+              particleAlphaMult = 2;
               particleCount = 100;
+              document.body.classList.add("gold-mode");
             }
             showEventToast("&#127918;", "コナミコマンド");
           }
