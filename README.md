@@ -2,11 +2,13 @@
 
 A dark-mode web guide covering Arbitrations strategy, builds, Kuva farming, and Vitus Essence.
 
-**Live site:** [arbi.guide](https://arbi.guide/)
+# [arbi.guide](https://arbi.guide/)
+
+**Author:** Geek (`@.edc` on Discord) — [Arbitration Goons community](https://discord.gg/Arbitrations)
 
 ## What's in this repo
 
-This repository is the deployed site — everything here is what gets served at `arbi.guide` via GitHub Pages.
+This repository is the deployed site — everything here is what gets served at `arbi.guide`, hosted on GitHub Pages with Cloudflare for the custom domain.
 
 | File / Folder | Description |
 |---|---|
