@@ -3017,7 +3017,7 @@
       video.src = "./.media_cache/v1/videos/Oiiai.cat.mp4";
       video.autoplay = true;
       video.loop = false;
-      video.muted = false;
+      video.muted = true;
       video.controls = false;
       video.playsInline = true;
       video.className = "dvd-player-video";
@@ -3091,7 +3091,10 @@
       });
 
       startBounce();
-      video.play().catch(function() {});
+      video.play().then(function() {
+        video.muted = false;
+        video.volume = volSlider ? parseFloat(volSlider.value) : 0.5;
+      }).catch(function() {});
 
       video.addEventListener("timeupdate", function() {
         if (!video.duration || isFullscreen) return;
