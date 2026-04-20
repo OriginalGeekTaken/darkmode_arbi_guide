@@ -895,7 +895,20 @@
       opacity: 1; transition: opacity 0.6s ease; white-space: nowrap;
     }
     .dvd-volume-control.fade-out { opacity: 0; }
-    .dvd-volume-icon { font-size: 20px; line-height: 1; flex-shrink: 0; }
+    .dvd-mute-btn {
+      position: relative; width: 36px; height: 36px; padding: 0; margin: 0;
+      background: none; border: none; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 6px; transition: background 0.15s;
+    }
+    .dvd-mute-btn:hover { background: rgba(114,199,255,0.12); }
+    .dvd-volume-icon { font-size: 20px; line-height: 1; pointer-events: none; }
+    .dvd-mute-x {
+      position: absolute; top: 3px; right: 3px;
+      font-size: 11px; font-weight: 900; color: #ef4444; line-height: 1;
+      display: none; pointer-events: none; text-shadow: 0 0 4px rgba(239,68,68,0.7);
+    }
+    .dvd-mute-btn.muted .dvd-mute-x { display: block; }
     .dvd-volume-slider {
       -webkit-appearance: none; appearance: none; width: 150px; height: 5px;
       border-radius: 3px; background: linear-gradient(to right, #72c7ff 0%, #4166f5 100%);
@@ -2949,10 +2962,20 @@
       var ctrl = document.createElement("div");
       ctrl.id = "dvdVolumeControl";
       ctrl.className = "dvd-volume-control";
-      ctrl.innerHTML = '<span class="dvd-volume-icon">&#128266;</span><input type="range" id="dvdVolumeSlider" min="0" max="1" step="0.01" value="0.5" class="dvd-volume-slider">';
+      ctrl.innerHTML =
+        '<button class="dvd-mute-btn" id="dvdMuteBtn" title="Mute / Unmute">' +
+          '<span class="dvd-volume-icon">&#128266;</span>' +
+          '<span class="dvd-mute-x">&#10006;</span>' +
+        '</button>' +
+        '<input type="range" id="dvdVolumeSlider" min="0" max="1" step="0.01" value="0.5" class="dvd-volume-slider">';
       document.body.appendChild(ctrl);
       document.getElementById("dvdVolumeSlider").addEventListener("input", function(e) {
         if (dvdPlayerEl) dvdPlayerEl.volume = parseFloat(e.target.value);
+      });
+      document.getElementById("dvdMuteBtn").addEventListener("click", function() {
+        var btn = this;
+        var isMuted = btn.classList.toggle("muted");
+        if (dvdPlayerEl) dvdPlayerEl.muted = isMuted;
       });
     }
 
@@ -3093,7 +3116,8 @@
 
       startBounce();
       video.play().then(function() {
-        video.muted = false;
+        var muteBtn = document.getElementById("dvdMuteBtn");
+        video.muted = muteBtn ? muteBtn.classList.contains("muted") : false;
         video.volume = volSlider ? parseFloat(volSlider.value) : 0.5;
       }).catch(function() {});
 
