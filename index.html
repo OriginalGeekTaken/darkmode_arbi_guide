@@ -2965,6 +2965,7 @@
     function showTransmissionToast() {
       var prev = document.getElementById("transmissionToast");
       if (prev) prev.remove();
+      trackEvent("cat_easter_egg_found");
       showDvdVolumeControl();
       var toast = document.createElement("div");
       toast.id = "transmissionToast";
@@ -2986,10 +2987,12 @@
         '</div>';
       document.body.appendChild(toast);
       document.getElementById("transmissionYes").addEventListener("click", function() {
+        trackEvent("cat_easter_egg_accepted");
         toast.classList.add("fade-out");
         setTimeout(function() { if (toast.parentNode) toast.remove(); startTransmissionEasterEgg(); }, 650);
       });
       document.getElementById("transmissionNo").addEventListener("click", function() {
+        trackEvent("cat_easter_egg_declined");
         toast.classList.add("fade-out");
         setTimeout(function() { if (toast.parentNode) toast.remove(); hideDvdVolumeControl(); }, 650);
       });
