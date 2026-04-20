@@ -1011,6 +1011,20 @@
     body.gold-mode .media-hint-toast::before {
       background: conic-gradient(from 0deg, transparent 0% 55%, #CC7700 72%, #FFD228 100%);
     }
+    body.gold-mode .sidebar,
+    body.gold-mode .topbar {
+      --text: #FFD228;
+      --muted: #CC9900;
+    }
+    body.gold-mode .sidebar a,
+    body.gold-mode .sidebar-updated,
+    body.gold-mode .brand,
+    body.gold-mode .topbar-note {
+      text-shadow: 0 0 10px rgba(255, 210, 40, 0.65), 0 0 3px rgba(255, 210, 40, 0.9);
+    }
+    body.gold-mode .sidebar a.active {
+      color: #FFD228;
+    }
   </style>
 </head>
 <body>
