@@ -1169,7 +1169,9 @@
 
     function makeReadableHash(text) {
       const normalized = normalizeHeadingText(text);
-      return normalized ? "#" + normalized.replace(/ /g, "_") : "#";
+      const stripped = normalized.replace(/^[^\p{L}\p{N}\s]+|[^\p{L}\p{N}\s]+$/gu, "").trim();
+      const base = stripped || normalized;
+      return base ? "#" + base.replace(/ /g, "_") : "#";
     }
 
     function makeReadableHashId(text) {
