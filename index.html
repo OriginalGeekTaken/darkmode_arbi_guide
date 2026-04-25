@@ -1086,7 +1086,7 @@
 
   <div class="layout">
     <aside id="sidebar" class="sidebar">
-<div class="sidebar-updated">Last updated: 2026-04-24</div>
+<div class="sidebar-updated">Last updated: 2026-04-25</div>
       <div id="sidebarLinks" class="sidebar-links"></div>
     </aside>
 
@@ -1517,22 +1517,30 @@
       const decodedId = decodeURIComponent(rawId);
       const spacedId = decodedId.replace(/_/g, " ").trim();
 
-      return (
-        document.getElementById(rawId) ||
-        document.getElementById(decodedId) ||
-        Array.from(document.querySelectorAll(".google-export h1, h2, h3")).find((heading) => {
-          const headingText = normalizeHeadingText(heading.textContent);
-          return (
-            headingText === decodedId ||
-            headingText === spacedId ||
-            slugify(headingText) === slugify(decodedId) ||
-            slugify(headingText) === slugify(spacedId) ||
-            heading.id === slugify(decodedId) ||
-            heading.id === slugify(spacedId)
-          );
-        }) ||
-        null
-      );
+      const byId = document.getElementById(rawId) || document.getElementById(decodedId);
+      if (byId) return byId;
+
+      const byText = Array.from(document.querySelectorAll(".google-export h1, h2, h3")).find((heading) => {
+        const headingText = normalizeHeadingText(heading.textContent);
+        return (
+          headingText === decodedId ||
+          headingText === spacedId ||
+          slugify(headingText) === slugify(decodedId) ||
+          slugify(headingText) === slugify(spacedId) ||
+          heading.id === slugify(decodedId) ||
+          heading.id === slugify(spacedId)
+        );
+      });
+      if (byText) return byText;
+
+      for (const link of document.querySelectorAll("#sidebar a[data-target-id]")) {
+        if (link.getAttribute("href") === href) {
+          const el = document.getElementById(link.dataset.targetId);
+          if (el) return el;
+        }
+      }
+
+      return null;
     }
 
     function resolveSidebarLinkTarget(link) {
