@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script>history.scrollRestoration="manual";window.scrollTo(0,0);</script>
   <link rel="icon" type="image/png" href="./logo.png">
   <link rel="shortcut icon" type="image/png" href="./logo.png">
   <link rel="apple-touch-icon" href="./logo.png">
@@ -2091,7 +2092,7 @@
       const target = resolveTargetFromHref(hash);
       if (!target) return;
 
-      scrollToHeading(target, behavior);
+      scrollToHeading(target, behavior === "auto" ? "instant" : behavior);
     }
 
     function startMediaLoading() {
@@ -3026,7 +3027,6 @@
     normalizeMobileInlineMedia();
     startMediaLoading();
 
-    history.scrollRestoration = "manual";
     window.addEventListener("load", function() {
       requestAnimationFrame(function() {
         scrollToHashTarget();
