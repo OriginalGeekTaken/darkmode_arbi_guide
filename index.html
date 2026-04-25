@@ -1,7 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script>history.scrollRestoration="manual";window.scrollTo(0,0);</script>
+  <script>
+    history.scrollRestoration = "manual";
+    if (!window.location.hash) window.scrollTo(0, 0);
+  </script>
   <link rel="icon" type="image/png" href="./logo.png">
   <link rel="shortcut icon" type="image/png" href="./logo.png">
   <link rel="apple-touch-icon" href="./logo.png">
@@ -501,6 +504,13 @@
     .google-export h3 {
       scroll-margin-top: 96px;
       border-radius: 10px;
+    }
+
+    .google-export .heading-anchor-alias {
+      display: block;
+      height: 0;
+      overflow: hidden;
+      scroll-margin-top: 96px;
     }
 
     .inline-outline-source {
@@ -1148,18 +1158,23 @@
       return text
         .toLowerCase()
         .trim()
-        .replace(/[^\\w\\s-]/g, "")
-        .replace(/\\s+/g, "-")
+        .replace(/[^\w\s-]/g, "")
+        .replace(/\s+/g, "-")
         .replace(/-+/g, "-");
     }
 
     function normalizeHeadingText(text) {
-      return (text || "").replace(/\\s+/g, " ").trim();
+      return (text || "").replace(/\s+/g, " ").trim();
     }
 
     function makeReadableHash(text) {
       const normalized = normalizeHeadingText(text);
       return normalized ? "#" + normalized.replace(/ /g, "_") : "#";
+    }
+
+    function makeReadableHashId(text) {
+      const hash = makeReadableHash(text);
+      return hash.length > 1 ? hash.slice(1) : "";
     }
 
     function getTopbarHeight() {
@@ -1498,7 +1513,38 @@
         while (used.has(id)) id += "-x";
         used.add(id);
         heading.id = id;
+        heading.dataset.readableHashId = makeReadableHashId(text);
       });
+
+      headings.forEach((heading) => {
+        ensureHeadingAlias(heading, heading.dataset.readableHashId || "");
+      });
+    }
+
+    function ensureHeadingAlias(heading, aliasId) {
+      if (!heading || !aliasId || aliasId === heading.id) return;
+
+      const existing = document.getElementById(aliasId);
+      if (existing) {
+        return;
+      }
+
+      const alias = document.createElement("span");
+      alias.id = aliasId;
+      alias.className = "heading-anchor-alias";
+      alias.dataset.headingAlias = "1";
+      alias.dataset.headingTargetId = heading.id;
+      alias.setAttribute("aria-hidden", "true");
+      heading.before(alias);
+    }
+
+    function resolveHeadingAlias(el) {
+      if (el?.dataset?.headingAlias === "1") {
+        const target = document.getElementById(el.dataset.headingTargetId || "");
+        if (target) return target;
+      }
+
+      return el;
     }
 
     function getGuideTopTarget() {
@@ -1515,13 +1561,18 @@
     function resolveTargetFromHref(href) {
       if (!href || !href.startsWith("#")) return null;
       const rawId = href.slice(1);
-      const decodedId = decodeURIComponent(rawId);
+      let decodedId = rawId;
+      try {
+        decodedId = decodeURIComponent(rawId);
+      } catch (error) {
+        decodedId = rawId;
+      }
       const spacedId = decodedId.replace(/_/g, " ").trim();
 
       const byId = document.getElementById(rawId) || document.getElementById(decodedId);
-      if (byId) return byId;
+      if (byId) return resolveHeadingAlias(byId);
 
-      const byText = Array.from(document.querySelectorAll(".google-export h1, h2, h3")).find((heading) => {
+      const byText = Array.from(document.querySelectorAll(".google-export h1, .google-export h2, .google-export h3")).find((heading) => {
         const headingText = normalizeHeadingText(heading.textContent);
         return (
           headingText === decodedId ||
@@ -1532,7 +1583,7 @@
           heading.id === slugify(spacedId)
         );
       });
-      if (byText) return byText;
+      if (byText) return resolveHeadingAlias(byText);
 
       for (const link of document.querySelectorAll("#sidebar a[data-target-id]")) {
         if (link.getAttribute("href") === href) {
@@ -1558,6 +1609,31 @@
     function getHeadingScrollOffset() {
       const topbarHeight = getTopbarHeight();
       return Math.max(16, Math.round(topbarHeight + getMobileProgressHeight() + 8));
+    }
+
+    function withInstantScroll(callback) {
+      const html = document.documentElement;
+      const body = document.body;
+      const previousHtmlBehavior = html.style.scrollBehavior;
+      const previousBodyBehavior = body?.style.scrollBehavior;
+
+      html.style.scrollBehavior = "auto";
+      if (body) body.style.scrollBehavior = "auto";
+
+      try {
+        callback();
+      } finally {
+        requestAnimationFrame(() => {
+          html.style.scrollBehavior = previousHtmlBehavior;
+          if (body) body.style.scrollBehavior = previousBodyBehavior;
+        });
+      }
+    }
+
+    function jumpToDocumentY(top) {
+      withInstantScroll(() => {
+        window.scrollTo(0, Math.max(0, Math.round(top)));
+      });
     }
 
     function flashHeading(target) {
@@ -1604,11 +1680,16 @@
       const currentTop = window.scrollY;
       const top = currentTop + target.getBoundingClientRect().top - getHeadingScrollOffset();
       const distance = Math.abs(top - currentTop);
+      const scrollTop = Math.max(0, Math.round(top));
 
-      window.scrollTo({
-        top: Math.max(0, Math.round(top)),
-        behavior
-      });
+      if (behavior === "instant") {
+        jumpToDocumentY(scrollTop);
+      } else {
+        window.scrollTo({
+          top: scrollTop,
+          behavior
+        });
+      }
 
       if (shouldFlash) {
         const flashDelay = behavior === "smooth"
@@ -1693,6 +1774,7 @@
           event.preventDefault();
           const target = resolveSidebarLinkTarget(link);
           if (target) {
+            cancelInitialLandingCorrection();
             window.history.pushState(null, "", link.getAttribute("href"));
             prioritizeMediaForHeading(target);
             scrollToHeading(target, "smooth");
@@ -1728,6 +1810,15 @@
     }
 
     let sidebarRevealFrame = null;
+    let scrollSpySuppressedUntil = 0;
+    let initialScrollCorrectionToken = 0;
+
+    function suppressSectionObserver(durationMs = 500) {
+      scrollSpySuppressedUntil = Math.max(
+        scrollSpySuppressedUntil,
+        performance.now() + durationMs
+      );
+    }
 
     function keepActiveSidebarLinkVisible(link) {
       if (!link) return;
@@ -1788,6 +1879,34 @@
       }
     }
 
+    function setActiveSidebarTarget(target) {
+      if (!target) return false;
+
+      const links = Array.from(document.querySelectorAll("#sidebar a"));
+      const link = links.find((item) => resolveSidebarLinkTarget(item) === target);
+      if (!link) return false;
+
+      setActiveSidebarLink(links, link, target);
+      return true;
+    }
+
+    function resetSidebarToTop() {
+      const sidebar = getSidebarScrollContainer();
+      if (sidebar) sidebar.scrollTop = 0;
+    }
+
+    function resetTopLanding() {
+      jumpToDocumentY(0);
+      resetSidebarToTop();
+
+      const links = Array.from(document.querySelectorAll("#sidebar a"));
+      const firstLink = links[0];
+      if (firstLink) {
+        setActiveSidebarLink(links, firstLink, resolveSidebarLinkTarget(firstLink));
+        resetSidebarToTop();
+      }
+    }
+
     function setupSectionObserver() {
       const links = Array.from(document.querySelectorAll("#sidebar a"));
 
@@ -1805,6 +1924,8 @@
 
       observer = new IntersectionObserver(
         (entries) => {
+          if (performance.now() < scrollSpySuppressedUntil) return;
+
           let bestEntry = null;
 
           for (const entry of entries) {
@@ -1835,8 +1956,11 @@
       targets.forEach((item) => observer.observe(item.target));
 
       let best = null;
-      const hashTarget = window.location.hash
-        ? targets.find((item) => `#${item.target.id}` === window.location.hash)
+      const currentHashTarget = window.location.hash
+        ? resolveTargetFromHref(window.location.hash)
+        : null;
+      const hashTarget = currentHashTarget
+        ? targets.find((item) => item.target === currentHashTarget)
         : null;
 
       if (hashTarget) {
@@ -2085,14 +2209,57 @@
       prioritizeMediaForHeading(target);
     }
 
-    function scrollToHashTarget(behavior = "auto") {
+    function getCurrentHashTarget() {
       const hash = window.location.hash || "";
-      if (!hash.startsWith("#")) return;
+      if (!hash.startsWith("#")) return null;
 
-      const target = resolveTargetFromHref(hash);
-      if (!target) return;
+      return resolveTargetFromHref(hash);
+    }
 
-      scrollToHeading(target, behavior === "auto" ? "instant" : behavior);
+    function scrollToHashTarget(behavior = "auto", shouldFlash = true) {
+      const target = getCurrentHashTarget();
+      if (!target) return false;
+
+      scrollToHeading(target, behavior === "auto" ? "instant" : behavior, shouldFlash);
+      setActiveSidebarTarget(target);
+      return true;
+    }
+
+    function correctInitialLanding() {
+      if (window.location.hash?.startsWith("#")) {
+        suppressSectionObserver(500);
+        const landed = scrollToHashTarget("instant");
+        if (landed) prioritizeMediaFromHash();
+        return landed;
+      }
+
+      suppressSectionObserver(250);
+      resetTopLanding();
+      return true;
+    }
+
+    function scheduleInitialLandingCorrection() {
+      const token = ++initialScrollCorrectionToken;
+      const run = () => {
+        if (token !== initialScrollCorrectionToken) return;
+        correctInitialLanding();
+      };
+      const retryDelays = window.location.hash?.startsWith("#")
+        ? [50, 150, 400, 900, 1600]
+        : [50, 150];
+
+      run();
+      requestAnimationFrame(run);
+      retryDelays.forEach((delay) => window.setTimeout(run, delay));
+
+      window.addEventListener("load", () => {
+        requestAnimationFrame(run);
+        window.setTimeout(run, 250);
+      }, { once: true });
+    }
+
+    function cancelInitialLandingCorrection() {
+      initialScrollCorrectionToken += 1;
     }
 
     function startMediaLoading() {
@@ -2791,6 +2958,8 @@
     });
 
     window.addEventListener("hashchange", () => {
+      cancelInitialLandingCorrection();
+      suppressSectionObserver(500);
       scrollToHashTarget("smooth");
       prioritizeMediaFromHash();
       closeMobileSidebar();
@@ -3027,12 +3196,11 @@
     normalizeMobileInlineMedia();
     startMediaLoading();
 
-    window.addEventListener("load", function() {
-      requestAnimationFrame(function() {
-        scrollToHashTarget();
-        prioritizeMediaFromHash();
-      });
-    }, { once: true });
+    scheduleInitialLandingCorrection();
+
+    window.addEventListener("pageshow", () => {
+      scheduleInitialLandingCorrection();
+    });
 
     (function setupHeadingGlitch() {
       var _gc = "!@#$%?|▒▓█▄▀■~^&*<>";
