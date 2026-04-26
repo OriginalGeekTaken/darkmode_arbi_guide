@@ -317,9 +317,19 @@
     .sidebar-updated {
       padding: 5px 10px 6px;
       color: var(--muted);
-      text-align: center;
       font-size: 15px;
       border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .viewer-count {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+      font-size: 13px;
     }
 
     .sidebar-links {
@@ -1097,7 +1107,7 @@
 
   <div class="layout">
     <aside id="sidebar" class="sidebar">
-<div class="sidebar-updated">Last updated: 2026-04-25</div>
+<div class="sidebar-updated"><span>Last updated: 2026-04-26</span><span class="viewer-count" id="viewerCount" hidden><svg width="14" height="10" viewBox="0 0 22 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 8S4.5 1 11 1s10 7 10 7-3.5 7-10 7S1 8 1 8z"/><circle cx="11" cy="8" r="3"/></svg><span id="viewerCountNum"></span></span></div>
       <div id="sidebarLinks" class="sidebar-links"></div>
     </aside>
 
@@ -3644,6 +3654,37 @@
         hideDvdVolumeControl();
       });
     }
+    (function initViewerCount() {
+      var WORKER_URL = "https://arbi-presence.7llewellyn.workers.dev";
+      if (!WORKER_URL) return;
+      var numEl = document.getElementById("viewerCountNum");
+      var wrapEl = document.getElementById("viewerCount");
+      if (!numEl || !wrapEl) return;
+      var sid = sessionStorage.getItem("arbi_sid");
+      if (!sid) {
+        sid = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
+        sessionStorage.setItem("arbi_sid", sid);
+      }
+      function setCount(n) {
+        numEl.textContent = n;
+        wrapEl.hidden = false;
+      }
+      function beat() {
+        fetch(WORKER_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sid: sid }) })
+          .then(function(r) { return r.ok ? r.json() : null; })
+          .then(function(d) { if (d && typeof d.count === "number") setCount(d.count); })
+          .catch(function() {});
+      }
+      function poll() {
+        fetch(WORKER_URL)
+          .then(function(r) { return r.ok ? r.json() : null; })
+          .then(function(d) { if (d && typeof d.count === "number") setCount(d.count); })
+          .catch(function() {});
+      }
+      beat();
+      setInterval(beat, 5 * 60 * 1000);
+      setInterval(poll, 60 * 1000);
+    })();
   </script>
 </body>
 </html>
