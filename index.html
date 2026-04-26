@@ -849,8 +849,10 @@
         border-radius: 6px;
         color: var(--muted);
         padding: 0;
-        margin: 8px 2px;
-        aspect-ratio: 1;
+        margin: 9px 3px;
+        width: 40px;
+        height: 40px;
+        flex-shrink: 0;
         cursor: pointer;
         font-size: 13px;
         line-height: 1;
@@ -858,6 +860,10 @@
 
       body.mobile-search-active .mobile-search-nav {
         display: flex;
+      }
+
+      body.mobile-search-active .mobile-viewer-topbar {
+        display: none;
       }
 
       .mobile-search-toggle {
