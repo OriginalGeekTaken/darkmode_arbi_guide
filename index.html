@@ -3960,15 +3960,21 @@
             var saved = el.innerHTML;
             var txt = el.textContent;
             var start = performance.now();
+            var DURATION = 1150;
+            var SCRAMBLE_INTERVAL = 50;
+            var lastScramble = 0;
             function step(now) {
               var t = now - start;
-              if (t >= 750) { el.innerHTML = saved; return; }
-              var p = t / 750;
-              el.textContent = txt.split("").map(function(c, i) {
-                if (c === " ") return " ";
-                if (i / txt.length < p * 0.8) return c;
-                return Math.random() < 0.55 ? _gc[Math.floor(Math.random() * _gc.length)] : c;
-              }).join("");
+              if (t >= DURATION) { el.innerHTML = saved; return; }
+              if (now - lastScramble >= SCRAMBLE_INTERVAL) {
+                lastScramble = now;
+                var p = t / DURATION;
+                el.textContent = txt.split("").map(function(c, i) {
+                  if (c === " ") return " ";
+                  if (i / txt.length < p * 0.8) return c;
+                  return Math.random() < 0.55 ? _gc[Math.floor(Math.random() * _gc.length)] : c;
+                }).join("");
+              }
               requestAnimationFrame(step);
             }
             requestAnimationFrame(step);
