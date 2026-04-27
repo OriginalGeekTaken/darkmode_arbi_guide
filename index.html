@@ -666,7 +666,7 @@
       border-radius: 12px;
       box-shadow: var(--shadow);
       object-fit: contain;
-      touch-action: auto;
+      touch-action: none;
       transform: translate(-50%, -50%);
       transform-origin: center center;
       will-change: transform;
@@ -2850,7 +2850,7 @@
       function applyLightboxTransform() {
         if (!activeLightboxMedia) return;
         activeLightboxMedia.style.transform =
-          `translate(calc(-50% + ${lightboxTranslateX}px), calc(-50% + ${lightboxTranslateY}px)) scale(${lightboxScale})`;
+          `translate(-50%, -50%) translate(${lightboxTranslateX}px, ${lightboxTranslateY}px) scale(${lightboxScale})`;
       }
 
       function resetLightboxTransform() {
