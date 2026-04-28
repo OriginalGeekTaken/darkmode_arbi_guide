@@ -2660,7 +2660,14 @@
       el.dataset.mediaPriority = priority;
 
       if (el.tagName === "IMG") {
-        el.loading = priority === "high" ? "eager" : "lazy";
+        // `loading` controls WHETHER to fetch (eager = now, lazy = when near
+        // viewport). `fetchPriority` controls HOW to schedule the fetch among
+        // other in-flight requests. They're orthogonal. We only want lazy
+        // behavior for the "low" tail — JS is explicitly assigning src on
+        // "high" and "auto" images, so they must be eager or the browser
+        // defers the fetch until each one scrolls into view (and the user
+        // sees rows of grayed-out placeholders that snap in one at a time).
+        el.loading = priority === "low" ? "lazy" : "eager";
         if (SUPPORTS_FETCH_PRIORITY) {
           el.fetchPriority = priority === "high" ? "high" : (priority === "low" ? "low" : "auto");
         }
