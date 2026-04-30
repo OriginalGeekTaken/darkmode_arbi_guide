@@ -14,6 +14,34 @@
       if (!window.location.hash) window.scrollTo(0, 0);
     } catch (e) { /* no-op */ }
   </script>
+  <script>
+    // Easter-egg console banner — first breadcrumb of the chain. Anyone who
+    // opens DevTools sees this; the rest of the chain is gated behind hints
+    // it drops. Wrapped in try/catch so a console-shim or polyfill cannot
+    // abort head parsing.
+    try {
+      console.log(
+        "%c\n" +
+        "    .  *  .  " + String.fromCodePoint(0x2726) + "  .  *  .\n" +
+        "         \\  |  /\n" +
+        "          \\ | /\n" +
+        "      --   * Lotus *   --\n" +
+        "          / | \\\n" +
+        "         /  |  \\\n" +
+        "    .  *  .  " + String.fromCodePoint(0x2726) + "  .  *  .\n\n" +
+        "  Wake up, Tenno.\n" +
+        "  Some echoes only the careful hear.\n",
+        "color:#72c7ff;font-family:ui-monospace,monospace;font-size:12px;line-height:1.4;"
+      );
+      console.log(
+        "%c  " + String.fromCodePoint(0x21B3) +
+        " The Lotus does not speak in the open.\n" +
+        "    Check what the crawlers were forbidden.\n" +
+        "    [Step 1 / 7 -- the chain is seven layers deep]",
+        "color:#aaa;font-family:ui-monospace,monospace;font-style:italic;"
+      );
+    } catch (e) { /* no-op */ }
+  </script>
   <link rel="icon" type="image/png" href="./logo.png">
   <link rel="apple-touch-icon" href="./logo.png">
   <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin>
@@ -1783,6 +1811,7 @@
       onGuideEvent("easter:konami-gold", () => { trackEvent("konami_gold_mode"); });
       onGuideEvent("easter:konami-repeat", () => { trackEvent("konami_repeat"); });
       onGuideEvent("easter:gremlin-activated", () => { trackEvent("gremlin_activated"); });
+      onGuideEvent("easter:void-completed", () => { trackEvent("void_chain_completed"); });
       onGuideEvent("sequence:found", () => { trackEvent("seq_found"); });
       onGuideEvent("sequence:accepted", () => { trackEvent("seq_accepted"); });
       onGuideEvent("sequence:declined", () => { trackEvent("seq_declined"); });
@@ -4308,6 +4337,87 @@
       var s = document.getElementById("gremlin-rain-style");
       if (s) s.remove();
     }
+
+    // ---------------------------------------------------------------
+    // Void.check — terminal layer of the easter-egg chain.
+    // The hidden secret is base64'd here so source readers see opaque
+    // text rather than the literal passphrase. The intended discovery
+    // path is the timing channel (per-char busy-wait + early return),
+    // which leaks chars one at a time via performance.now() sampling.
+    // Calling Void.check(<recovered string>) === true triggers the
+    // reward overlay. Exposed as window.Void (capitalized) because
+    // `void` is a reserved unary operator and `void.x` is a parse error.
+    // ---------------------------------------------------------------
+    function _voidShowReward(_secret) {
+      var _mark = "(unmarked — return to /Lua/ first)";
+      var _m = document.cookie.match(/(?:^|;\s*)tenno_mark=([^;]+)/);
+      if (_m) { try { _mark = decodeURIComponent(_m[1]); } catch (e) {} }
+
+      var _ov = document.createElement("div");
+      _ov.id = "_voidRewardOverlay";
+      _ov.setAttribute("role", "dialog");
+      _ov.setAttribute("aria-modal", "true");
+      _ov.style.cssText =
+        "position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;" +
+        "display:flex;align-items:center;justify-content:center;" +
+        "font-family:ui-monospace,monospace;color:#72c7ff;padding:20px;" +
+        "overflow:auto;";
+      var _box = document.createElement("div");
+      _box.style.cssText =
+        "max-width:680px;border:1px solid #72c7ff;padding:30px;" +
+        "background:#0b0d10;line-height:1.6;box-shadow:0 0 40px rgba(114,199,255,0.3);";
+      var _badge = document.createElement("div");
+      _badge.textContent = "STEP 7 / 7 — COMPLETE";
+      _badge.style.cssText =
+        "display:inline-block;color:#FFD228;border:1px solid #FFD228;" +
+        "padding:3px 10px;font-size:11px;letter-spacing:0.2em;margin-bottom:14px;";
+      _box.appendChild(_badge);
+      var _h = document.createElement("h2");
+      _h.textContent = "The void answers.";
+      _h.style.cssText = "color:#FFD228;margin:0 0 16px;font-family:ui-monospace,monospace;";
+      _box.appendChild(_h);
+      var _p1 = document.createElement("p");
+      _p1.textContent = "Send the following to Geek to claim your prize:";
+      _p1.style.cssText = "margin:0 0 12px;";
+      _box.appendChild(_p1);
+      var _pre = document.createElement("pre");
+      _pre.style.cssText =
+        "background:#000;border:1px solid #2a2d31;padding:14px;margin:0 0 16px;" +
+        "white-space:pre-wrap;color:#e6e6e6;user-select:all;font-size:13px;";
+      _pre.textContent = _mark + "\n" + _secret;
+      _box.appendChild(_pre);
+      var _close = document.createElement("button");
+      _close.textContent = "[ close ]";
+      _close.style.cssText =
+        "background:none;border:1px solid #72c7ff;color:#72c7ff;" +
+        "padding:6px 14px;cursor:pointer;font-family:ui-monospace,monospace;";
+      _close.addEventListener("click", function() { _ov.remove(); });
+      _box.appendChild(_close);
+      _ov.appendChild(_box);
+      document.body.appendChild(_ov);
+      try { emitGuideEvent("easter:void-completed"); } catch (e) {}
+    }
+
+    window.Void = {
+      check: function(_input) {
+        if (typeof _input !== "string") return false;
+        var _s = atob(
+          "T2J0dXNlLCBydWJiZXIgZ29vc2UsIGdyZWVuIG1vb3NlLCBndWF2YSBqdWljZQpHaWFu" +
+          "dCBzbmFrZSwgYmlydGhkYXkgY2FrZSwgbGFyZ2UgZnJpZXMsIGNob2NvbGF0ZSBzaGFr" +
+          "ZQ=="
+        );
+        if (_input.length !== _s.length) return false;
+        for (var _i = 0; _i < _s.length; _i++) {
+          // Per-char busy-wait — makes the comparison measurable via
+          // performance.now() across many samples. ~0.4ms per char.
+          var _t = performance.now() + 0.4;
+          while (performance.now() < _t) { /* spin */ }
+          if (_input.charCodeAt(_i) !== _s.charCodeAt(_i)) return false;
+        }
+        _voidShowReward(_s);
+        return true;
+      }
+    };
 
     function showTransmissionToast() {
       var prev = document.getElementById("transmissionToast");

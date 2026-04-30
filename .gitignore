@@ -1,0 +1,6 @@
+# Cloudflare Workers — deployed separately, never part of the Pages bundle.
+# Kept inside this repo for workspace tidiness only.
+/workers/
+
+# Easter-egg hint sheet for Geek's eyes only — never deploy.
+hackerhints.md

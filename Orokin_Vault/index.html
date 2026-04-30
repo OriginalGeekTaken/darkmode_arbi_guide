@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0d10">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Orokin Vault — sealed</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <style>
+    html, body { background:#0b0d10; color:#72c7ff; margin:0; padding:40px 20px; font-family:ui-monospace,monospace; }
+    .frame { max-width:620px; margin:0 auto; border:1px solid #2a2d31; padding:36px; background:#0e1115; box-shadow:0 0 30px rgba(0,0,0,0.6); }
+    .step-badge { display:inline-block; color:#FFD228; border:1px solid #FFD228; padding:3px 10px; font-size:11px; letter-spacing:0.2em; margin-bottom:14px; }
+    h1 { color:#FFD228; margin:0 0 12px; font-size:22px; letter-spacing:0.05em; }
+    .sub { color:#888; font-size:13px; margin:0 0 28px; line-height:1.5; }
+    label { display:block; color:#72c7ff; font-size:12px; letter-spacing:0.15em; margin:16px 0 6px; }
+    input { width:100%; box-sizing:border-box; background:#000; border:1px solid #2a2d31; color:#e6e6e6; padding:10px 12px; font-family:inherit; font-size:14px; }
+    input:focus { outline:none; border-color:#72c7ff; }
+    button { margin-top:22px; background:none; border:1px solid #72c7ff; color:#72c7ff; padding:10px 20px; cursor:pointer; font-family:inherit; font-size:13px; letter-spacing:0.15em; }
+    button:hover:not(:disabled) { background:rgba(114,199,255,0.08); }
+    button:disabled { opacity:0.4; cursor:wait; }
+    .result { margin-top:22px; padding:14px; border:1px solid #2a2d31; min-height:18px; font-size:13px; line-height:1.5; white-space:pre-wrap; }
+    .ok  { border-color:#FFD228; color:#FFD228; }
+    .err { border-color:#c14545; color:#c14545; }
+    .pow { margin-top:22px; padding:18px; border:1px solid #72c7ff; background:#000; }
+    .pow-title { color:#72c7ff; font-size:12px; letter-spacing:0.2em; margin-bottom:14px; }
+    .pow-bar { height:6px; background:#1a1d22; overflow:hidden; margin:10px 0; }
+    .pow-bar-fill { height:100%; background:linear-gradient(90deg,#72c7ff,#FFD228); width:0%; transition:width 0.2s linear; }
+    .pow-stat { color:#888; font-size:12px; line-height:1.7; }
+    .pow-stat b { color:#e6e6e6; font-weight:normal; }
+    .reveal { margin-top:22px; padding:18px; border:1px solid #FFD228; background:#000; }
+    .reveal-title { color:#FFD228; font-size:12px; letter-spacing:0.2em; margin-bottom:14px; }
+    .reveal-body { color:#e6e6e6; font-size:13px; line-height:1.6; white-space:pre-wrap; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <div class="step-badge">STEP 5 / 7 &mdash; SEALED</div>
+    <h1>Orokin Vault</h1>
+    <p class="sub">The seal answers only to its bearer.</p>
+    <form id="vaultForm" autocomplete="off">
+      <label for="mark">MARK</label>
+      <input id="mark" name="mark" type="text" autocomplete="off" spellcheck="false" placeholder="TENNO-XXXX-XXXX-XXXX-XXXX">
+      <label for="sigil">SIGIL</label>
+      <input id="sigil" name="sigil" type="text" autocomplete="off" spellcheck="false" placeholder="16 hex chars">
+      <button type="submit" id="submitBtn">offer to the seal</button>
+    </form>
+    <div id="result" class="result" hidden></div>
+    <div id="pow" class="pow" hidden>
+      <div class="pow-title">STEP 6 / 7 &mdash; PROOF OF WORK</div>
+      <div class="pow-stat">
+        challenge: <b id="powChallenge"></b><br>
+        difficulty: <b id="powDifficulty"></b> leading zero bits<br>
+        nonces tried: <b id="powCount">0</b><br>
+        rate: <b id="powRate">--</b> hashes/sec<br>
+        elapsed: <b id="powElapsed">0.0s</b>
+      </div>
+      <div class="pow-bar"><div class="pow-bar-fill" id="powBar"></div></div>
+      <div class="pow-stat" id="powHint" style="margin-top:10px;font-style:italic;"></div>
+    </div>
+    <div id="reveal" class="reveal" hidden>
+      <div class="reveal-title">STEP 6 COMPLETE &mdash; STEP 7 / 7 AWAITS</div>
+      <div class="reveal-body" id="revealBody"></div>
+    </div>
+  </div>
+  <script>
+    (function() {
+      var form = document.getElementById("vaultForm");
+      var btn = document.getElementById("submitBtn");
+      var out = document.getElementById("result");
+      var powEl = document.getElementById("pow");
+      var revealEl = document.getElementById("reveal");
+
+      function b64ToBytes(s) {
+        var bin = atob(s);
+        var arr = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        return arr;
+      }
+
+      function hasLeadingZeroBits(bytes, bits) {
+        var fullBytes = Math.floor(bits / 8);
+        var rem = bits % 8;
+        for (var i = 0; i < fullBytes; i++) if (bytes[i] !== 0) return false;
+        if (rem === 0) return true;
+        var mask = (0xff << (8 - rem)) & 0xff;
+        return (bytes[fullBytes] & mask) === 0;
+      }
+
+      function buildInput(challenge, nonce) {
+        var buf = new Uint8Array(challenge.length + 8);
+        buf.set(challenge, 0);
+        // big-endian uint64 — must match setup_v2_payload.py's nonce.to_bytes(8, "big")
+        // Use Math instead of BigInt for compatibility; nonces won't exceed 2^53.
+        var hi = Math.floor(nonce / 0x100000000);
+        var lo = nonce >>> 0;
+        var view = new DataView(buf.buffer, challenge.length, 8);
+        view.setUint32(0, hi, false);
+        view.setUint32(4, lo, false);
+        return buf;
+      }
+
+      async function solvePoW(challenge, difficulty, onProgress) {
+        var BATCH = 256;
+        var nonce = 0;
+        var startTime = performance.now();
+        while (true) {
+          var promises = [];
+          for (var i = 0; i < BATCH; i++) {
+            promises.push(crypto.subtle.digest("SHA-256", buildInput(challenge, nonce + i)));
+          }
+          var results = await Promise.all(promises);
+          for (var j = 0; j < BATCH; j++) {
+            var digest = new Uint8Array(results[j]);
+            if (hasLeadingZeroBits(digest, difficulty)) {
+              return {
+                nonce: nonce + j,
+                key: digest,
+                hashes: nonce + j + 1,
+                elapsed: performance.now() - startTime,
+              };
+            }
+          }
+          nonce += BATCH;
+          if (onProgress && (nonce % 4096 === 0)) {
+            var elapsed = performance.now() - startTime;
+            onProgress(nonce, elapsed);
+            // Yield to UI so the progress paints + the page stays responsive.
+            await new Promise(function(r) { setTimeout(r, 0); });
+          }
+        }
+      }
+
+      async function decryptPayload(keyBytes, ivBytes, ciphertextBytes) {
+        var cryptoKey = await crypto.subtle.importKey(
+          "raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"]
+        );
+        var plain = await crypto.subtle.decrypt(
+          { name: "AES-GCM", iv: ivBytes }, cryptoKey, ciphertextBytes
+        );
+        return new TextDecoder().decode(plain);
+      }
+
+      async function runStep6(challenge) {
+        powEl.hidden = false;
+        document.getElementById("powChallenge").textContent =
+          Array.from(challenge.challenge).map(function(b) { return b.toString(16).padStart(2,"0"); }).join("");
+        document.getElementById("powDifficulty").textContent = challenge.difficulty;
+        document.getElementById("powHint").textContent = challenge.hint || "";
+
+        var expectedHashes = Math.pow(2, challenge.difficulty);
+        var solution = await solvePoW(challenge.challenge, challenge.difficulty, function(n, elapsed) {
+          document.getElementById("powCount").textContent = n.toLocaleString();
+          document.getElementById("powRate").textContent = Math.round(n / (elapsed / 1000)).toLocaleString();
+          document.getElementById("powElapsed").textContent = (elapsed / 1000).toFixed(1) + "s";
+          var pct = Math.min(99, (n / expectedHashes) * 100);
+          document.getElementById("powBar").style.width = pct + "%";
+        });
+        document.getElementById("powCount").textContent = solution.hashes.toLocaleString();
+        document.getElementById("powElapsed").textContent = (solution.elapsed / 1000).toFixed(1) + "s";
+        document.getElementById("powBar").style.width = "100%";
+        document.getElementById("powHint").textContent =
+          "nonce found: " + solution.nonce + " -- decrypting...";
+
+        var plaintext = await decryptPayload(solution.key, challenge.iv, challenge.ciphertext);
+        revealEl.hidden = false;
+        document.getElementById("revealBody").textContent = plaintext;
+        document.getElementById("powHint").textContent = "nonce found: " + solution.nonce + " -- payload decrypted.";
+      }
+
+      form.addEventListener("submit", function(e) {
+        e.preventDefault();
+        btn.disabled = true;
+        out.hidden = false;
+        out.className = "result";
+        out.textContent = "...";
+        revealEl.hidden = true;
+        powEl.hidden = true;
+
+        fetch("/Orokin_Vault/api/unlock", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mark: document.getElementById("mark").value,
+            sigil: document.getElementById("sigil").value
+          })
+        }).then(function(r) { return r.json(); }).then(function(data) {
+          if (data && data.ok && data.challenge) {
+            out.className = "result ok";
+            out.textContent = data.msg || "the seal opens";
+            // Decode + run step 6 PoW.
+            runStep6({
+              challenge: b64ToBytes(data.challenge.challenge_b64),
+              ciphertext: b64ToBytes(data.challenge.ciphertext_b64),
+              iv: b64ToBytes(data.challenge.iv_b64),
+              difficulty: data.challenge.difficulty,
+              hint: data.challenge.hint,
+            }).catch(function(err) {
+              out.className = "result err";
+              out.textContent = "step 6 failed: " + (err && err.message ? err.message : err);
+              btn.disabled = false;
+            });
+          } else {
+            btn.disabled = false;
+            out.className = "result err";
+            out.textContent = (data && data.msg) || "rejected";
+          }
+        }).catch(function() {
+          btn.disabled = false;
+          out.className = "result err";
+          out.textContent = "the void is silent. try again.";
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
