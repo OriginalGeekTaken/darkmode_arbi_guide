@@ -22,11 +22,14 @@ This repository is the deployed site - everything here is what gets served at `a
 
 - Full darkmode design
 - Sticky sidebar with section navigation and copy-link buttons
-- Lazy loaded images and videos with priority tiers and shimmer placeholders
-- Guide search with keyboard shortcut (`/`) and (`esc`)
 - Expandable lightbox for full resolution image and video viewing
+- Section-jump flash highlight when navigating via sidebar or shared links
 - User controls for font size, spacing, and content width (saved to localStorage)
+- Lazy loaded images and videos with priority tiers and shimmer placeholders
+- Guide search shortcuts: `/` to focus, `Enter` / `Shift+Enter` to step through, `Esc` to clear
+- Live viewer count showing how many people are reading the guide right now
 - Responsive mobile layout with slide in sidebar and scroll progress bar
+- Accessibility: skip-to-content link, respects `prefers-reduced-motion`
 - Particle animation in desktop margins
 - Easter eggs :3
 
