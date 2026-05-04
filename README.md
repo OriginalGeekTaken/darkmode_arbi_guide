@@ -14,9 +14,13 @@ This repository is the deployed site - everything here is what gets served at `a
 |---|---|
 | `index.html` | The complete guide - a single self-contained page |
 | `.media_cache/v1/` | Converted media assets (WebP images, MP4 videos) referenced by `index.html` |
-| `logo.png` | Site favicon and brand logo |
+| `logo.png` | Favicon, apple-touch-icon, and social-card image (broad-compat formats only) |
+| `logo.webp` | Lossless WebP version of the logo used by the in-page brand image (LCP target) |
 | `sitemap.xml` | Sitemap for search engine indexing |
 | `robots.txt` | Crawl directives pointing to the sitemap |
+| `_headers` | Cloudflare Pages response headers (clickjacking protection, caching rules) |
+| `.well-known/security.txt` | RFC 9116 security policy with auto-rolling expiry |
+| `LICENSE` | MIT license covering the HTML/CSS/JS shell |
 
 ## Features
 
