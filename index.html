@@ -107,7 +107,7 @@
     "description": "Complete Warframe Arbitrations guide covering Vitus Essence farming for Kuva, frame and weapon builds, drop tables, tilesets, enemy scaling, and optimal strategies for defense, interception, and mirror defense missions.",
     "image": "https://arbi.guide/logo.png",
     "datePublished": "2024-01-01",
-    "dateModified": "2026-05-02",
+    "dateModified": "2026-05-06",
     "inLanguage": "en",
     "isAccessibleForFree": true,
     "author": {
@@ -641,7 +641,8 @@
        tile width per cycle (linear, 2.5s) for a seamless loop. Targets the
        marker class added by `tag_discord_invite_link()` (build script) so it
        cannot apply to other discord links the doc may grow later.
-       Reduced-motion override below (~line 1842) strips the whole effect. */
+       Reduced-motion override above (inside the @media block at ~line 1861,
+       discord-link override at ~line 1879) strips the whole effect. */
     .google-export a.discord-invite-link {
       background-image: linear-gradient(
         100deg,
@@ -1560,7 +1561,7 @@
 
   <div class="layout">
     <aside id="sidebar" class="sidebar">
-<div class="sidebar-updated"><span>Last updated: 2026-05-02</span><span class="viewer-count" id="viewerCount"><svg width="14" height="10" aria-hidden="true"><use href="#icon-eye"/></svg><span id="viewerCountNum"></span></span></div>
+<div class="sidebar-updated"><span>Last updated: 2026-05-06</span><span class="viewer-count" id="viewerCount"><svg width="14" height="10" aria-hidden="true"><use href="#icon-eye"/></svg><span id="viewerCountNum"></span></span></div>
       <div id="sidebarLinks" class="sidebar-links"></div>
     </aside>
 
@@ -4382,7 +4383,7 @@
       try { emitGuideEvent("_e4"); } catch (e) {}
     }
 
-    // Vm9pZC5jaGVjayAvIFZvaWQuYWN0aXZhdGUgLS0gdGVybWluYWwgY2hhaW4gbGF5ZXIgKHN0ZXAgNykuIFNlY3JldCBpcyBOT1QgaW4gdGhpcyBzb3VyY2UuIFZvaWQuY2hlY2sgc3RhcnRzIGRpc2FybWVkIChjbG9zdXJlIF9zID0gbnVsbCkgYW5kIHJldHVybnMgZmFsc2UgZm9yIGFueSBpbnB1dC4gVG8gYXJtIGl0IHRoZSB2aXNpdG9yIGNhbGxzIFZvaWQuYWN0aXZhdGUoPHBvd19ub25jZT4pIHdoZXJlIHRoZSBub25jZSBpcyB3aGF0IHRoZXkgYnJ1dGUtZm9yY2VkIGR1cmluZyBzdGVwIDYgb24gL09yb2tpbl9WYXVsdC8uIFRoZSB3b3JrZXIgcmUtdmVyaWZpZXMgdGhlIFBvVyBzZXJ2ZXItc2lkZSBhbmQgcmV0dXJucyB0aGUgc2VjcmV0IG9ubHkgb24gc3VjY2Vzcy4gT25jZSBhcm1lZCwgVm9pZC5jaGVjayB3b3JrcyBhcyBhIHJlYWwgdGltaW5nLWNoYW5uZWwgY29tcGFyYXRvciAocGVyLWNoYXIgYnVzeS13YWl0ICsgZWFybHkgcmV0dXJuKS4gU291cmNlLXJlYWRlciBieXBhc3M6IGJsb2NrZWQuIFRoZSBmdW5jdGlvbiBib2R5IGhhcyBubyBzZWNyZXQgbWF0ZXJpYWwuIENhbGxpbmcgVm9pZC5jaGVjayguLi4pIHdpdGhvdXQgcHJpb3IgYWN0aXZhdGlvbiByZXR1cm5zIGZhbHNlLiBDYWxsaW5nIFZvaWQuYWN0aXZhdGUoImd1ZXNzIikgZmFpbHMgdGhlIHNlcnZlci1zaWRlIFBvVyBjaGVjay4gRXhwb3NlZCBhcyB3aW5kb3cuVm9pZCAoY2FwaXRhbGl6ZWQpIGJlY2F1c2UgYHZvaWRgIGlzIGEgcmVzZXJ2ZWQgdW5hcnkgb3BlcmF0b3IgYW5kIGB2b2lkLnhgIGlzIGEgcGFyc2UgZXJyb3Iu
+    // Vm9pZC5jaGVjayAvIFZvaWQuYWN0aXZhdGUgLS0gdGVybWluYWwgY2hhaW4gbGF5ZXIgKHN0ZXAgNykuIFNlY3JldCBpcyBOT1QgaW4gdGhpcyBzb3VyY2UuIFZvaWQuY2hlY2sgc3RhcnRzIGRpc2FybWVkIChjbG9zdXJlIF9zID0gbnVsbCkgYW5kIHJldHVybnMgZmFsc2UgZm9yIGFueSBpbnB1dC4gVG8gYXJtIGl0IHRoZSB2aXNpdG9yIGNhbGxzIFZvaWQuYWN0aXZhdGUoPHBvd19ub25jZT4sIDxiaW5kX25vbmNlPikgd2hlcmUgTiBpcyB3aGF0IHRoZXkgYnJ1dGUtZm9yY2VkIGR1cmluZyBzdGVwIDYgb24gL09yb2tpbl9WYXVsdC8gYW5kIE0gaXMgdGhlIHBlci12aXNpdG9yIGJpbmQgbm9uY2Ugc29sdmVkIGF1dG9tYXRpY2FsbHkgcmlnaHQgYWZ0ZXIuIFRoZSB3b3JrZXIgcmUtdmVyaWZpZXMgQk9USCBQb1dzIHNlcnZlci1zaWRlIC0tIHRoZSBtYWluIG9uZSBhZ2FpbnN0IFNIQS0yNTYoY2hhbGxlbmdlIHx8IE4pIGFuZCB0aGUgYmluZCBhZ2FpbnN0IFNIQS0yNTYoY2hhbGxlbmdlIHx8IHRlbm5vX2lkIHx8IE4gfHwgTSkgLS0gYW5kIHJldHVybnMgdGhlIHNlY3JldCBvbmx5IHdoZW4gYm90aCBwYXNzLiBPbmNlIGFybWVkLCBWb2lkLmNoZWNrIHdvcmtzIGFzIGEgcmVhbCB0aW1pbmctY2hhbm5lbCBjb21wYXJhdG9yIChwZXItY2hhciBidXN5LXdhaXQgKyBlYXJseSByZXR1cm4pLiBTb3VyY2UtcmVhZGVyIGJ5cGFzczogYmxvY2tlZC4gVGhlIGZ1bmN0aW9uIGJvZHkgaGFzIG5vIHNlY3JldCBtYXRlcmlhbC4gQ2FsbGluZyBWb2lkLmNoZWNrKC4uLikgd2l0aG91dCBwcmlvciBhY3RpdmF0aW9uIHJldHVybnMgZmFsc2UuIENhbGxpbmcgVm9pZC5hY3RpdmF0ZSgwLCAwKSBmYWlscyB0aGUgc2VydmVyLXNpZGUgY2hlY2tzLiBUaGUgYmluZCBub25jZSBpcyB3aGF0IHN0b3BzIGEgbGVha2VkIE4gZnJvbSBiZWluZyByZXBsYXllZCBhY3Jvc3MgdmlzaXRvcnMgLS0gTSBvbmx5IHZhbGlkYXRlcyBmb3IgdGhlIG9yaWdpbmFsIHRlbm5vX2lkLiBFeHBvc2VkIGFzIHdpbmRvdy5Wb2lkIChjYXBpdGFsaXplZCkgYmVjYXVzZSBgdm9pZGAgaXMgYSByZXNlcnZlZCB1bmFyeSBvcGVyYXRvciBhbmQgYHZvaWQueGAgaXMgYSBwYXJzZSBlcnJvci4=
     window.Void = (function() {
       var _s = null;
       return {
@@ -4399,14 +4400,17 @@
           _voidShowReward(_s);
           return true;
         },
-        activate: function(_nonce) {
+        activate: function(_nonce, _bind) {
           if (typeof _nonce !== "number" || !isFinite(_nonce) || _nonce < 0) {
             return Promise.reject(new Error("nonce must be a non-negative number"));
+          }
+          if (typeof _bind !== "number" || !isFinite(_bind) || _bind < 0) {
+            return Promise.reject(new Error("bind nonce must be a non-negative number -- use Void.activate(N, M)"));
           }
           return fetch("/Orokin_Vault/api/void-activate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ nonce: _nonce }),
+            body: JSON.stringify({ nonce: _nonce, bind: _bind }),
           }).then(function(r) { return r.json(); }).then(function(_d) {
             if (_d && _d.ok && typeof _d.secret === "string") {
               _s = _d.secret;

@@ -103,6 +103,25 @@
         return buf;
       }
 
+      // Per-visitor bind input: SHA-256(challenge || tenno_id || N || M) — must match
+      // handleVoidActivate's layout in tenno.js. tenno_id is the UUID string as UTF-8.
+      function buildBindInput(challenge, tennoIdBytes, nonce, bind) {
+        var buf = new Uint8Array(challenge.length + tennoIdBytes.length + 16);
+        var off = 0;
+        buf.set(challenge, off); off += challenge.length;
+        buf.set(tennoIdBytes, off); off += tennoIdBytes.length;
+        var view = new DataView(buf.buffer, off, 16);
+        var nHi = Math.floor(nonce / 0x100000000);
+        var nLo = nonce >>> 0;
+        view.setUint32(0, nHi, false);
+        view.setUint32(4, nLo, false);
+        var mHi = Math.floor(bind / 0x100000000);
+        var mLo = bind >>> 0;
+        view.setUint32(8, mHi, false);
+        view.setUint32(12, mLo, false);
+        return buf;
+      }
+
       async function solvePoW(challenge, difficulty, onProgress) {
         var BATCH = 256;
         var nonce = 0;
@@ -131,6 +150,26 @@
             // Yield to UI so the progress paints + the page stays responsive.
             await new Promise(function(r) { setTimeout(r, 0); });
           }
+        }
+      }
+
+      async function solveBindPow(challenge, tennoIdBytes, nonce, difficulty) {
+        var BATCH = 256;
+        var bind = 0;
+        while (true) {
+          var promises = [];
+          for (var i = 0; i < BATCH; i++) {
+            promises.push(crypto.subtle.digest("SHA-256", buildBindInput(challenge, tennoIdBytes, nonce, bind + i)));
+          }
+          var results = await Promise.all(promises);
+          for (var j = 0; j < BATCH; j++) {
+            var digest = new Uint8Array(results[j]);
+            if (hasLeadingZeroBits(digest, difficulty)) {
+              return bind + j;
+            }
+          }
+          bind += BATCH;
+          if (bind % 4096 === 0) await new Promise(function(r) { setTimeout(r, 0); });
         }
       }
 
@@ -169,15 +208,27 @@
         revealEl.hidden = false;
         document.getElementById("revealBody").textContent = plaintext;
 
+        // Per-visitor binding stage. Solves M such that
+        // SHA-256(challenge || tenno_id || N || M) has bind_difficulty leading zeros.
+        // Sub-second at difficulty 16. Without this, a leaked N could be replayed
+        // by any visitor with their own cookie; binding to tenno_id stops that.
+        document.getElementById("powHint").textContent =
+          "nonce found: " + solution.nonce + " -- forging your seal...";
+        var tennoIdBytes = new TextEncoder().encode(challenge.tennoId);
+        var bindNonce = await solveBindPow(
+          challenge.challenge, tennoIdBytes, solution.nonce, challenge.bindDifficulty
+        );
+
         // Step 7 hand-off: the secret is server-side now. Visitor must call
-        // Void.activate(<their PoW nonce>) on the main site to arm Void.check.
+        // Void.activate(N, M) on the main site to arm Void.check.
         document.getElementById("activateInstr").textContent =
           "To arm Void.check on the main site, open the console at https://arbi.guide/ and run:";
         var activateLine = document.getElementById("activateLine");
         activateLine.hidden = false;
-        activateLine.textContent = "Void.activate(" + solution.nonce + ")";
+        activateLine.textContent = "Void.activate(" + solution.nonce + ", " + bindNonce + ")";
 
-        document.getElementById("powHint").textContent = "nonce found: " + solution.nonce + " -- payload decrypted.";
+        document.getElementById("powHint").textContent =
+          "nonce found: " + solution.nonce + " -- payload decrypted, seal forged.";
       }
 
       form.addEventListener("submit", function(e) {
@@ -200,12 +251,15 @@
           if (data && data.ok && data.challenge) {
             out.className = "result ok";
             out.textContent = data.msg || "the seal opens";
-            // Decode + run step 6 PoW.
+            // Decode + run step 6 PoW. tennoId + bindDifficulty drive the
+            // per-visitor bind stage that runs after the main PoW solves.
             runStep6({
               challenge: b64ToBytes(data.challenge.challenge_b64),
               ciphertext: b64ToBytes(data.challenge.ciphertext_b64),
               iv: b64ToBytes(data.challenge.iv_b64),
               difficulty: data.challenge.difficulty,
+              bindDifficulty: data.challenge.bind_difficulty,
+              tennoId: data.tenno_id,
               hint: data.challenge.hint,
             }).catch(function(err) {
               out.className = "result err";
